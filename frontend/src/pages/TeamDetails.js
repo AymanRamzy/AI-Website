@@ -461,6 +461,27 @@ function TeamDetails() {
               />
             </div>
           )}
+
+          {/* Case Tab */}
+          {activeTab === 'case' && (
+            <div>
+              <TeamCase 
+                teamId={teamId}
+                competition={competition}
+              />
+            </div>
+          )}
+
+          {/* Submission Tab */}
+          {activeTab === 'submission' && (
+            <div>
+              <TeamSubmission 
+                teamId={teamId}
+                competition={competition}
+                team={team}
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>
