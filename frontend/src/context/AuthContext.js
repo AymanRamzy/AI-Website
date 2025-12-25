@@ -26,8 +26,6 @@ export const AuthProvider = ({ children }) => {
   /**
    * SECURITY: Configure axios to use cookies (withCredentials)
    * This allows HttpOnly cookies to be sent automatically with requests
-   * 
-   * IMPROVEMENT: Global 401 interceptor for clean auth failure handling
    */
   useEffect(() => {
     // Enable credentials (cookies) for all requests to the backend
@@ -36,23 +34,34 @@ export const AuthProvider = ({ children }) => {
     // Remove any Authorization header (we use cookies now)
     delete axios.defaults.headers.common['Authorization'];
     
-    // OPTIONAL IMPROVEMENT: Global 401 Interceptor
-    // Automatically handle session expiry across the app
+    // OPTIONAL IMPROVEMENT: Global 401 Interceptor (Smart - Only for Protected Routes)
+    // Does NOT redirect on initial auth check (/auth/me)
     const responseInterceptor = axios.interceptors.response.use(
       (response) => response,
       (error) => {
         // Handle 401 Unauthorized (expired or invalid session)
         if (error.response?.status === 401) {
+          const requestUrl = error.config?.url || '';
+          
+          // Skip redirect for initial auth check (this is expected for visitors)
+          if (requestUrl.includes('/auth/me')) {
+            return Promise.reject(error);
+          }
+          
           // Only redirect if not already on auth pages
-          const authPages = ['/signin', '/signup', '/auth/callback'];
+          const authPages = ['/signin', '/signup', '/auth/callback', '/login', '/register'];
           const currentPath = window.location.pathname;
           
           if (!authPages.includes(currentPath)) {
             // Clear user state
             setUser(null);
             
-            // Redirect to login with return URL
-            window.location.href = `/signin?redirect=${encodeURIComponent(currentPath)}`;
+            // Only redirect for protected routes (not public pages)
+            const publicPages = ['/', '/about', '/contact', '/faq', '/services', '/competitions', '/fmva', '/100fm', '/community', '/testimonials'];
+            if (!publicPages.includes(currentPath)) {
+              // Redirect to login with return URL (only for protected routes)
+              window.location.href = `/signin?redirect=${encodeURIComponent(currentPath)}`;
+            }
           }
         }
         
