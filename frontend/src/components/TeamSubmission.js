@@ -12,29 +12,18 @@ import {
   FileSpreadsheet,
   Archive,
   Clock,
-  Shield
+  Shield,
+  Ban
 } from 'lucide-react';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL || '';
-
-// Accepted file types
-const ACCEPTED_TYPES = {
-  'application/pdf': { icon: FileText, label: 'PDF', color: 'text-red-600 bg-red-100' },
-  'application/vnd.ms-excel': { icon: FileSpreadsheet, label: 'Excel', color: 'text-green-600 bg-green-100' },
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': { icon: FileSpreadsheet, label: 'Excel', color: 'text-green-600 bg-green-100' },
-  'application/zip': { icon: Archive, label: 'ZIP', color: 'text-purple-600 bg-purple-100' },
-  'application/x-zip-compressed': { icon: Archive, label: 'ZIP', color: 'text-purple-600 bg-purple-100' }
-};
 
 const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB
 
 /**
  * TeamSubmission - Submission Tab Component
  * Allows teams to upload and submit their solution
- * - File upload area (PDF, Excel, ZIP)
- * - Upload status indicator
- * - Submit Final Solution button
- * - Tied to team and competition case
+ * Enforces deadline from competition data
  */
 function TeamSubmission({ teamId, competition, team }) {
   const { user } = useAuth();
@@ -45,17 +34,58 @@ function TeamSubmission({ teamId, competition, team }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [deadlinePassed, setDeadlinePassed] = useState(false);
+  const [countdown, setCountdown] = useState(null);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
     loadExistingSubmission();
+    checkDeadline();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [teamId, competition]);
 
+  // Countdown timer for deadline
+  useEffect(() => {
+    if (countdown === null || countdown <= 0) return;
+    
+    const timer = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          setDeadlinePassed(true);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    
+    return () => clearInterval(timer);
+  }, [countdown]);
+
+  const checkDeadline = () => {
+    const deadline = competition?.submission_deadline_at;
+    if (deadline) {
+      try {
+        const deadlineDt = new Date(deadline);
+        const now = new Date();
+        if (now > deadlineDt) {
+          setDeadlinePassed(true);
+        } else {
+          setDeadlinePassed(false);
+          const diff = Math.floor((deadlineDt - now) / 1000);
+          setCountdown(diff);
+        }
+      } catch (e) {
+        console.error('Invalid deadline format:', e);
+      }
+    }
+  };
+
   const loadExistingSubmission = async () => {
+    if (!teamId) return;
+    
     setLoading(true);
     try {
-      // Check for existing submission for this team and competition
       const response = await axios.get(
         `${API_URL}/api/cfo/teams/${teamId}/submission`,
         { params: { competition_id: competition?.id } }
@@ -81,22 +111,45 @@ function TeamSubmission({ teamId, competition, team }) {
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
 
-  const getFileTypeInfo = (file) => {
-    const type = file?.type || '';
-    return ACCEPTED_TYPES[type] || { icon: FileText, label: 'File', color: 'text-gray-600 bg-gray-100' };
+  const formatCountdown = (seconds) => {
+    const days = Math.floor(seconds / 86400);
+    const hours = Math.floor((seconds % 86400) / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    
+    if (days > 0) {
+      return `${days}d ${hours}h ${mins}m`;
+    } else if (hours > 0) {
+      return `${hours}h ${mins}m ${secs}s`;
+    } else {
+      return `${mins}m ${secs}s`;
+    }
+  };
+
+  const getFileIcon = (file) => {
+    const ext = file?.name?.split('.').pop()?.toLowerCase();
+    if (ext === 'pdf') return FileText;
+    if (ext === 'xls' || ext === 'xlsx') return FileSpreadsheet;
+    if (ext === 'zip') return Archive;
+    return FileText;
+  };
+
+  const getFileColor = (file) => {
+    const ext = file?.name?.split('.').pop()?.toLowerCase();
+    if (ext === 'pdf') return 'text-red-600 bg-red-100';
+    if (ext === 'xls' || ext === 'xlsx') return 'text-green-600 bg-green-100';
+    if (ext === 'zip') return 'text-purple-600 bg-purple-100';
+    return 'text-gray-600 bg-gray-100';
   };
 
   const validateFile = (file) => {
-    // Check file type
-    const acceptedMimeTypes = Object.keys(ACCEPTED_TYPES);
-    const fileExt = file.name.split('.').pop()?.toLowerCase();
+    const ext = file.name.split('.').pop()?.toLowerCase();
     const acceptedExtensions = ['pdf', 'xls', 'xlsx', 'zip'];
     
-    if (!acceptedMimeTypes.includes(file.type) && !acceptedExtensions.includes(fileExt)) {
+    if (!acceptedExtensions.includes(ext)) {
       return 'Invalid file type. Only PDF, Excel (.xls, .xlsx), and ZIP files are accepted.';
     }
 
-    // Check file size
     if (file.size > MAX_FILE_SIZE) {
       return `File size (${formatFileSize(file.size)}) exceeds the 25MB limit.`;
     }
@@ -129,6 +182,8 @@ function TeamSubmission({ teamId, competition, team }) {
     e.preventDefault();
     e.stopPropagation();
 
+    if (deadlinePassed || submission) return;
+
     const file = e.dataTransfer.files?.[0];
     if (!file) return;
 
@@ -158,7 +213,12 @@ function TeamSubmission({ teamId, competition, team }) {
       return;
     }
 
-    if (!window.confirm('Are you sure you want to submit this as your final solution? This action may not be reversible.')) {
+    if (deadlinePassed) {
+      setError('Submission deadline has passed.');
+      return;
+    }
+
+    if (!window.confirm('Are you sure you want to submit this as your final solution? This action cannot be undone.')) {
       return;
     }
 
@@ -171,7 +231,9 @@ function TeamSubmission({ teamId, competition, team }) {
       const formData = new FormData();
       formData.append('file', selectedFile);
       formData.append('team_id', teamId);
-      formData.append('competition_id', competition?.id);
+      if (competition?.id) {
+        formData.append('competition_id', competition.id);
+      }
 
       const response = await axios.post(
         `${API_URL}/api/cfo/teams/${teamId}/submission`,
@@ -194,18 +256,16 @@ function TeamSubmission({ teamId, competition, team }) {
       }
     } catch (err) {
       console.error('Submission failed:', err);
-      setError(
-        err.response?.data?.detail || 
-        'Failed to submit your solution. Please try again.'
-      );
+      const errorMsg = err.response?.data?.detail || 'Failed to submit your solution. Please try again.';
+      setError(errorMsg);
     } finally {
       setUploading(false);
       setUploadProgress(0);
     }
   };
 
-  const FileIcon = selectedFile ? getFileTypeInfo(selectedFile).icon : FileText;
-  const fileTypeInfo = selectedFile ? getFileTypeInfo(selectedFile) : null;
+  const FileIcon = selectedFile ? getFileIcon(selectedFile) : FileText;
+  const fileColor = selectedFile ? getFileColor(selectedFile) : '';
 
   if (loading) {
     return (
@@ -221,17 +281,39 @@ function TeamSubmission({ teamId, competition, team }) {
   return (
     <div className="bg-white rounded-xl border-2 border-gray-200 overflow-hidden">
       {/* Header */}
-      <div className="bg-gradient-to-r from-modex-accent to-modex-secondary text-white px-6 py-4">
+      <div className={`text-white px-6 py-4 ${deadlinePassed ? 'bg-gradient-to-r from-gray-500 to-gray-600' : 'bg-gradient-to-r from-modex-accent to-modex-secondary'}`}>
         <div className="flex items-center justify-between">
           <div>
             <h3 className="font-bold text-lg">Team Submission</h3>
             <p className="text-sm opacity-90">
-              {submission ? 'Submission received' : 'Upload your final solution'}
+              {submission ? 'Submission received' : deadlinePassed ? 'Deadline passed' : 'Upload your final solution'}
             </p>
           </div>
-          <Send className="w-8 h-8 opacity-80" />
+          {deadlinePassed ? <Ban className="w-8 h-8 opacity-80" /> : <Send className="w-8 h-8 opacity-80" />}
         </div>
       </div>
+
+      {/* Deadline Timer */}
+      {competition?.submission_deadline_at && !submission && (
+        <div className={`px-6 py-3 border-b ${deadlinePassed ? 'bg-red-50 border-red-200' : 'bg-orange-50 border-orange-200'}`}>
+          <div className="flex items-center justify-between">
+            <p className={`text-sm ${deadlinePassed ? 'text-red-800' : 'text-orange-800'}`}>
+              <Clock className="w-4 h-4 inline-block mr-2" />
+              <strong>Deadline:</strong> {new Date(competition.submission_deadline_at).toLocaleString()}
+            </p>
+            {!deadlinePassed && countdown && (
+              <span className="text-sm font-mono font-bold text-orange-700 bg-orange-100 px-3 py-1 rounded">
+                {formatCountdown(countdown)} remaining
+              </span>
+            )}
+            {deadlinePassed && (
+              <span className="text-sm font-bold text-red-700 bg-red-100 px-3 py-1 rounded">
+                CLOSED
+              </span>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="p-6">
         {/* Success Message */}
@@ -250,6 +332,23 @@ function TeamSubmission({ teamId, competition, team }) {
           </div>
         )}
 
+        {/* Deadline Passed Message */}
+        {deadlinePassed && !submission && (
+          <div className="mb-6 bg-red-50 border-2 border-red-200 rounded-xl p-6">
+            <div className="flex items-start">
+              <div className="bg-red-100 p-3 rounded-lg mr-4">
+                <Ban className="w-8 h-8 text-red-600" />
+              </div>
+              <div>
+                <h4 className="font-bold text-red-900 text-lg">Submission Closed</h4>
+                <p className="text-red-700 text-sm mt-1">
+                  The submission deadline has passed. No more submissions are being accepted.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Existing Submission */}
         {submission && (
           <div className="mb-6 bg-green-50 border-2 border-green-200 rounded-xl p-6">
@@ -259,7 +358,7 @@ function TeamSubmission({ teamId, competition, team }) {
               </div>
               <div className="flex-1">
                 <h4 className="font-bold text-green-900 text-lg">Submission Received</h4>
-                <p className="text-green-700 text-sm mt-1">Your team has already submitted a solution.</p>
+                <p className="text-green-700 text-sm mt-1">Your team has successfully submitted a solution.</p>
                 
                 <div className="mt-4 bg-white rounded-lg p-4 border border-green-200">
                   <div className="flex items-center">
@@ -272,6 +371,11 @@ function TeamSubmission({ teamId, competition, team }) {
                         <Clock className="w-3 h-3 mr-1" />
                         Submitted: {new Date(submission.submitted_at).toLocaleString()}
                       </div>
+                      {submission.submitted_by_name && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          By: {submission.submitted_by_name}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -285,8 +389,8 @@ function TeamSubmission({ teamId, competition, team }) {
           </div>
         )}
 
-        {/* Upload Area (Only show if no submission) */}
-        {!submission && (
+        {/* Upload Area (Only show if no submission and deadline not passed) */}
+        {!submission && !deadlinePassed && (
           <>
             {/* Drag & Drop Zone */}
             <div
@@ -309,12 +413,12 @@ function TeamSubmission({ teamId, competition, team }) {
 
               {selectedFile ? (
                 <div className="flex flex-col items-center">
-                  <div className={`p-4 rounded-full mb-4 ${fileTypeInfo?.color || 'bg-gray-100'}`}>
+                  <div className={`p-4 rounded-full mb-4 ${fileColor}`}>
                     <FileIcon className="w-10 h-10" />
                   </div>
                   <p className="font-bold text-gray-800 text-lg">{selectedFile.name}</p>
                   <p className="text-gray-500 text-sm mt-1">
-                    {fileTypeInfo?.label} • {formatFileSize(selectedFile.size)}
+                    {formatFileSize(selectedFile.size)}
                   </p>
                   <button
                     onClick={(e) => {
