@@ -17,10 +17,6 @@ function TeamCase({ teamId, competition }) {
   const [showPreview, setShowPreview] = useState(false);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    loadCaseFile();
-  }, [competition]);
-
   const loadCaseFile = async () => {
     setLoading(true);
     setError('');
