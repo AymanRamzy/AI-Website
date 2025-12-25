@@ -63,13 +63,16 @@ function Home() {
 
         {/* Hero Content */}
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          {/* Large Prominent Logo */}
-          <div className="mb-8">
+          {/* Large Prominent Logo - Brand Statement */}
+          <div className="mb-10">
             <img 
               src="/logo-main.png" 
               alt="ModEX" 
-              className="mx-auto w-auto h-32 sm:h-40 md:h-48 lg:h-56"
-              style={{ objectFit: 'contain', filter: 'drop-shadow(0 4px 20px rgba(0,0,0,0.3))' }}
+              className="mx-auto w-auto h-40 sm:h-48 md:h-56 lg:h-64"
+              style={{ 
+                objectFit: 'contain',
+                filter: 'brightness(0) invert(1) drop-shadow(0 8px 24px rgba(0,0,0,0.4))'
+              }}
             />
           </div>
 
