@@ -174,7 +174,7 @@ function TeamSubmission({ teamId, competition, team }) {
       formData.append('competition_id', competition?.id);
 
       const response = await axios.post(
-        `${API_URL}/api/teams/${teamId}/submission`,
+        `${API_URL}/api/cfo/teams/${teamId}/submission`,
         formData,
         {
           headers: { 'Content-Type': 'multipart/form-data' },
