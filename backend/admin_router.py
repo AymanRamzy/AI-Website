@@ -342,8 +342,8 @@ async def get_cfo_applications(
 ):
     supabase = get_supabase_client()
     query = supabase.table('cfo_applications').select('*')
-    if status:
-        query = query.eq('status', status)
+    if status_filter:
+        query = query.eq('status', status_filter)
     if competition_id:
         query = query.eq('competition_id', competition_id)
     response = query.order('final_score', desc=True).execute()
