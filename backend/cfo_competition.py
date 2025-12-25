@@ -1766,7 +1766,7 @@ async def submit_team_solution(
     if len(contents) > MAX_FILE_SIZE:
         raise HTTPException(
             status_code=413,
-            detail=f"File size exceeds the 25MB limit."
+            detail="File size exceeds the 25MB limit."
         )
     
     # Upload to Supabase Storage
