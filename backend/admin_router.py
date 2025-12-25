@@ -324,7 +324,7 @@ async def update_application_status(
         "override_at": datetime.utcnow().isoformat()
     }
     
-    response = supabase.table('cfo_applications')\
+    supabase.table('cfo_applications')\
         .update(update_data)\
         .eq('id', application_id)\
         .execute()
@@ -336,7 +336,7 @@ async def update_application_status(
 
 @router.get("/cfo-applications", response_model=List[CFOApplicationResponse])
 async def get_cfo_applications(
-    status: Optional[str] = None,
+    status_filter: Optional[str] = None,
     competition_id: Optional[str] = None,
     current_user: User = Depends(get_admin_user)
 ):
