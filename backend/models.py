@@ -205,6 +205,8 @@ class CompetitionCreate(BaseModel):
     competition_end: str
     max_teams: int = 8
     status: str = "draft"
+    case_release_at: Optional[str] = None
+    submission_deadline_at: Optional[str] = None
 
 class Competition(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -218,6 +220,8 @@ class Competition(BaseModel):
     competition_end: Optional[str] = None
     max_teams: int = 8
     status: str = "draft"
+    case_release_at: Optional[str] = None
+    submission_deadline_at: Optional[str] = None
     created_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
 
 class CompetitionResponse(BaseModel):
@@ -232,6 +236,8 @@ class CompetitionResponse(BaseModel):
     competition_end: Optional[str] = None
     max_teams: int
     status: str
+    case_release_at: Optional[str] = None
+    submission_deadline_at: Optional[str] = None
     created_at: Optional[datetime] = None
 
 class CompetitionUpdate(BaseModel):
@@ -243,6 +249,8 @@ class CompetitionUpdate(BaseModel):
     competition_end: Optional[str] = None
     max_teams: Optional[int] = None
     status: Optional[str] = None
+    case_release_at: Optional[str] = None
+    submission_deadline_at: Optional[str] = None
 
 # CFO Application Models
 class CFOApplicationCreate(BaseModel):
