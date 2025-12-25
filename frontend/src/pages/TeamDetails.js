@@ -36,7 +36,7 @@ function TeamDetails() {
   const [copiedTeamId, setCopiedTeamId] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [assigningRole, setAssigningRole] = useState(null);
-  const [activeTab, setActiveTab] = useState('members'); // members, chat, video
+  const [activeTab, setActiveTab] = useState('members'); // members, chat, video, case, submission
 
   const roles = ['Analyst', 'Designer', 'Strategist', 'Communicator'];
 
