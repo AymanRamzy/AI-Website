@@ -78,7 +78,7 @@ const TextAreaField = ({ label, value, onChange, maxLength, minLength, placehold
 );
 
 function CFOApplication() {
-  const { user, token } = useAuth();
+  const { user } = useAuth();  // SECURITY: Cookie-based auth
   const navigate = useNavigate();
   const { competitionId } = useParams();
   const fileInputRef = useRef(null);
@@ -180,7 +180,7 @@ function CFOApplication() {
         formDataUpload,
         {
           headers: {
-            'Authorization': `Bearer ${token}`
+            // SECURITY: Cookies sent automatically
           }
         }
       );
