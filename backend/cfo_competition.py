@@ -1635,3 +1635,200 @@ async def assign_role(
     except Exception as e:
         logger.error(f"Assign role error: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to assign role: {str(e)}")
+
+
+# =========================================================
+# TEAM SUBMISSIONS
+# =========================================================
+
+
+@router.get("/teams/{team_id}/submission")
+async def get_team_submission(
+    team_id: str,
+    competition_id: str = None,
+    current_user: User = Depends(get_current_user)
+):
+    """Get team's existing submission for a competition."""
+    import logging
+    logger = logging.getLogger(__name__)
+    supabase = get_supabase_client()
+    
+    # Verify user is a team member
+    membership = supabase.table("team_members") \
+        .select("id") \
+        .eq("team_id", team_id) \
+        .eq("user_id", current_user.id) \
+        .execute()
+    
+    if not membership.data:
+        raise HTTPException(status_code=403, detail="You are not a member of this team")
+    
+    # Get team's submission
+    query = supabase.table("team_submissions") \
+        .select("*") \
+        .eq("team_id", team_id)
+    
+    if competition_id:
+        query = query.eq("competition_id", competition_id)
+    
+    result = query.order("submitted_at", desc=True).limit(1).execute()
+    
+    if not result.data:
+        raise HTTPException(status_code=404, detail="No submission found")
+    
+    submission = result.data[0]
+    
+    return {
+        "submitted": True,
+        "id": submission["id"],
+        "file_name": submission.get("file_name"),
+        "file_url": submission.get("file_url"),
+        "submitted_at": submission.get("submitted_at"),
+        "submitted_by": submission.get("submitted_by"),
+        "submitted_by_name": submission.get("submitted_by_name")
+    }
+
+
+@router.post("/teams/{team_id}/submission")
+async def submit_team_solution(
+    team_id: str,
+    file: UploadFile = File(...),
+    competition_id: str = None,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Submit team's final solution for the competition case.
+    Only one submission per team per competition.
+    """
+    import logging
+    from supabase import create_client
+    logger = logging.getLogger(__name__)
+    supabase = get_supabase_client()
+    
+    # Verify user is a team member
+    membership = supabase.table("team_members") \
+        .select("id") \
+        .eq("team_id", team_id) \
+        .eq("user_id", current_user.id) \
+        .execute()
+    
+    if not membership.data:
+        raise HTTPException(status_code=403, detail="You are not a member of this team")
+    
+    # Get team to find competition_id if not provided
+    team_result = supabase.table("teams") \
+        .select("competition_id") \
+        .eq("id", team_id) \
+        .execute()
+    
+    if not team_result.data:
+        raise HTTPException(status_code=404, detail="Team not found")
+    
+    comp_id = competition_id or team_result.data[0]["competition_id"]
+    
+    # Check if team already has a submission
+    existing = supabase.table("team_submissions") \
+        .select("id") \
+        .eq("team_id", team_id) \
+        .eq("competition_id", comp_id) \
+        .execute()
+    
+    if existing.data:
+        raise HTTPException(
+            status_code=409,
+            detail="Your team has already submitted a solution. Only one submission is allowed."
+        )
+    
+    # Validate file type
+    ALLOWED_MIME_TYPES = {
+        'application/pdf': '.pdf',
+        'application/vnd.ms-excel': '.xls',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
+        'application/zip': '.zip',
+        'application/x-zip-compressed': '.zip'
+    }
+    
+    MAX_FILE_SIZE = 25 * 1024 * 1024  # 25MB
+    
+    content_type = file.content_type or ''
+    file_ext = os.path.splitext(file.filename or 'submission.pdf')[1].lower()
+    
+    if content_type not in ALLOWED_MIME_TYPES and file_ext not in ALLOWED_MIME_TYPES.values():
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid file type. Only PDF, Excel (.xls, .xlsx), and ZIP files are accepted."
+        )
+    
+    # Read file contents
+    contents = await file.read()
+    
+    if len(contents) == 0:
+        raise HTTPException(status_code=400, detail="File is empty")
+    
+    if len(contents) > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File size exceeds the 25MB limit."
+        )
+    
+    # Upload to Supabase Storage
+    SUPABASE_URL = os.environ.get("SUPABASE_URL")
+    SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    
+    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+        raise HTTPException(status_code=500, detail="Storage configuration error")
+    
+    supabase_admin = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+    
+    # Build file path: submissions/{competition_id}/{team_id}/{filename}
+    safe_filename = f"submission_{team_id}{file_ext}"
+    file_path = f"submissions/{comp_id}/{team_id}/{safe_filename}"
+    
+    try:
+        # Upload file
+        upload_result = supabase_admin.storage.from_("team-submissions").upload(
+            path=file_path,
+            file=contents,
+            file_options={"content-type": content_type or 'application/octet-stream', "upsert": "true"}
+        )
+        
+        if hasattr(upload_result, 'error') and upload_result.error:
+            logger.error(f"Upload error: {upload_result.error}")
+            raise HTTPException(status_code=500, detail="Failed to upload file")
+        
+        # Store submission record
+        now = datetime.utcnow().isoformat()
+        submission_data = {
+            "team_id": team_id,
+            "competition_id": comp_id,
+            "file_name": file.filename,
+            "file_path": file_path,
+            "file_url": file_path,
+            "file_size": len(contents),
+            "submitted_by": current_user.id,
+            "submitted_by_name": current_user.full_name,
+            "submitted_at": now
+        }
+        
+        result = supabase.table("team_submissions").insert(submission_data).execute()
+        
+        if not result.data:
+            raise HTTPException(status_code=500, detail="Failed to save submission record")
+        
+        logger.info(f"Team {team_id} submitted solution by user {current_user.id}")
+        
+        return {
+            "success": True,
+            "submitted": True,
+            "id": result.data[0]["id"],
+            "file_name": file.filename,
+            "submitted_at": now,
+            "submitted_by_name": current_user.full_name
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Submission error: {type(e).__name__}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to submit solution. Please try again.")
+
