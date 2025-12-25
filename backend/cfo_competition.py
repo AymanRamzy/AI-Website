@@ -1952,26 +1952,16 @@ async def submit_team_solution(
         logger.error(f"Supabase admin client creation failed: {e}")
         raise HTTPException(status_code=500, detail="Storage service unavailable")
     
-    # Build file path: submissions/{team_id}/{uuid}.{ext}
+    # Build file path: Submissions/{competition_id}/{team_id}/{filename}
     unique_id = str(uuid.uuid4())[:8]
-    file_path = f"submissions/{team_id}/{unique_id}{file_ext}"
-    
-    # Use application/pdf as content type to bypass bucket MIME restrictions
-    # The actual file type is preserved in the extension
-    upload_content_type = 'application/pdf'
+    file_path = f"Submissions/{comp_id}/{team_id}/{unique_id}{file_ext}"
     
     try:
-        # Remove existing file if any (ignore errors)
-        try:
-            supabase_admin.storage.from_("cfo-cvs").remove([file_path])
-        except Exception:
-            pass
-        
-        # Upload file
-        upload_result = supabase_admin.storage.from_("cfo-cvs").upload(
+        # Upload file to team-submissions bucket
+        upload_result = supabase_admin.storage.from_("team-submissions").upload(
             path=file_path,
             file=contents,
-            file_options={"content-type": upload_content_type, "upsert": "true"}
+            file_options={"content-type": "application/octet-stream", "upsert": "true"}
         )
         
         # Check for upload errors
