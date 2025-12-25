@@ -49,6 +49,7 @@ function TeamSubmission({ teamId, competition, team }) {
 
   useEffect(() => {
     loadExistingSubmission();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [teamId, competition]);
 
   const loadExistingSubmission = async () => {
