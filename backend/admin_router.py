@@ -489,14 +489,14 @@ async def get_admin_stats(current_user: User = Depends(get_admin_user)):
     try:
         teams = supabase.table('teams').select('id').execute()
         total_teams = len(teams.data or [])
-    except:
+    except Exception:
         total_teams = 0
     
     try:
         applications = supabase.table('cfo_applications').select('id, status').execute()
         total_apps = len(applications.data or [])
         pending_apps = len([a for a in (applications.data or []) if a.get('status') == 'pending'])
-    except:
+    except Exception:
         total_apps = 0
         pending_apps = 0
     
