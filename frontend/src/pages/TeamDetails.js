@@ -309,10 +309,10 @@ function TeamDetails() {
 
           {/* Tabs */}
           <div className="border-b border-gray-200 mb-6">
-            <div className="flex space-x-1">
+            <div className="flex space-x-1 overflow-x-auto">
               <button
                 onClick={() => setActiveTab('members')}
-                className={`px-6 py-3 font-bold transition-colors border-b-2 ${
+                className={`px-6 py-3 font-bold transition-colors border-b-2 whitespace-nowrap ${
                   activeTab === 'members'
                     ? 'border-modex-secondary text-modex-secondary'
                     : 'border-transparent text-gray-600 hover:text-modex-primary'
@@ -323,7 +323,7 @@ function TeamDetails() {
               </button>
               <button
                 onClick={() => setActiveTab('chat')}
-                className={`px-6 py-3 font-bold transition-colors border-b-2 ${
+                className={`px-6 py-3 font-bold transition-colors border-b-2 whitespace-nowrap ${
                   activeTab === 'chat'
                     ? 'border-modex-secondary text-modex-secondary'
                     : 'border-transparent text-gray-600 hover:text-modex-primary'
@@ -334,14 +334,36 @@ function TeamDetails() {
               </button>
               <button
                 onClick={() => setActiveTab('video')}
-                className={`px-6 py-3 font-bold transition-colors border-b-2 ${
+                className={`px-6 py-3 font-bold transition-colors border-b-2 whitespace-nowrap ${
                   activeTab === 'video'
                     ? 'border-modex-secondary text-modex-secondary'
                     : 'border-transparent text-gray-600 hover:text-modex-primary'
                 }`}
               >
                 <Video className="w-5 h-5 inline-block mr-2" />
-                Video Calls
+                Video
+              </button>
+              <button
+                onClick={() => setActiveTab('case')}
+                className={`px-6 py-3 font-bold transition-colors border-b-2 whitespace-nowrap ${
+                  activeTab === 'case'
+                    ? 'border-modex-secondary text-modex-secondary'
+                    : 'border-transparent text-gray-600 hover:text-modex-primary'
+                }`}
+              >
+                <FileText className="w-5 h-5 inline-block mr-2" />
+                Case
+              </button>
+              <button
+                onClick={() => setActiveTab('submission')}
+                className={`px-6 py-3 font-bold transition-colors border-b-2 whitespace-nowrap ${
+                  activeTab === 'submission'
+                    ? 'border-modex-secondary text-modex-secondary'
+                    : 'border-transparent text-gray-600 hover:text-modex-primary'
+                }`}
+              >
+                <Send className="w-5 h-5 inline-block mr-2" />
+                Submission
               </button>
             </div>
           </div>
