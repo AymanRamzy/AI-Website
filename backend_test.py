@@ -79,7 +79,7 @@ class CFOAPITester:
                     headers={"Content-Type": "application/json"}
                 )
                 
-                if response.status_code == 200:
+                if response.status_code == 201:  # Changed from 200 to 201 for creation
                     result = response.json()
                     self.test_users[user_data["role"]] = {
                         "credentials": user_data,
