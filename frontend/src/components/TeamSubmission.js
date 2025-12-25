@@ -57,7 +57,7 @@ function TeamSubmission({ teamId, competition, team }) {
     try {
       // Check for existing submission for this team and competition
       const response = await axios.get(
-        `${API_URL}/api/teams/${teamId}/submission`,
+        `${API_URL}/api/cfo/teams/${teamId}/submission`,
         { params: { competition_id: competition?.id } }
       );
       
