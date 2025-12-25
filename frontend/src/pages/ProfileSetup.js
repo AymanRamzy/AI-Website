@@ -98,7 +98,7 @@ const validateLinkedInUrl = (url) => {
 function ProfileSetup() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, token } = useAuth();
+  const { user } = useAuth();  // SECURITY: Cookie-based auth
   
   // Check if in edit mode
   const isEditMode = location.state?.editMode || false;
@@ -132,13 +132,13 @@ function ProfileSetup() {
   // Load existing profile data
   useEffect(() => {
     const loadProfile = async () => {
-      if (!token) {
+      if (!user) {  // SECURITY: Check user session
         setInitialLoading(false);
         return;
       }
       try {
         const response = await axios.get(`${API_URL}/api/cfo/profile`, {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { // SECURITY: Cookies sent automatically }
         });
         
         const profile = response.data;
@@ -200,7 +200,7 @@ function ProfileSetup() {
       }
     };
     loadProfile();
-  }, [token, navigate, isEditMode]);
+  }, [user, navigate, isEditMode]);
 
   // Handle phone input change - updates country automatically
   const handlePhoneChange = useCallback((value, countryData) => {
@@ -352,7 +352,7 @@ function ProfileSetup() {
       };
 
       await axios.put(`${API_URL}/api/cfo/profile`, payload, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { // SECURITY: Cookies sent automatically }
       });
 
       if (isEditMode) {
