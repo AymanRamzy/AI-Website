@@ -349,9 +349,7 @@ function ProfileSetup() {
         certifications: certifications
       };
 
-      await axios.put(`${API_URL}/api/cfo/profile`, payload, {
-        headers: { // SECURITY: Cookies sent automatically }
-      });
+      await axios.put(`${API_URL}/api/cfo/profile`, payload);
 
       if (isEditMode) {
         setSuccessMessage('Profile updated successfully!');
