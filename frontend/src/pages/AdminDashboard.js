@@ -1,15 +1,21 @@
 /**
  * AdminDashboard - Admin management interface
  * SECURITY HARDENED: Cookie-based authentication (P0 Frontend Integration)
+ * ENHANCED: Case file upload + Timer configuration
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { 
+  Upload, FileText, Clock, Trash2, Download, 
+  Calendar, AlertCircle, CheckCircle, Loader,
+  Settings, X
+} from 'lucide-react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || '';
 
 function AdminDashboard() {
-  const { user, logout } = useAuth();  // SECURITY: Removed token (uses cookies)
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('overview');
   const [stats, setStats] = useState(null);
@@ -17,8 +23,21 @@ function AdminDashboard() {
   const [competitions, setCompetitions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [editingComp, setEditingComp] = useState(null);
-  const [newComp, setNewComp] = useState({ title: '', description: '', registration_start: '', registration_end: '', competition_start: '', competition_end: '', max_teams: 8, status: 'draft' });
+  const [success, setSuccess] = useState('');
+  const [newComp, setNewComp] = useState({ 
+    title: '', description: '', 
+    registration_start: '', registration_end: '', 
+    competition_start: '', competition_end: '', 
+    max_teams: 8, status: 'draft',
+    case_release_at: '', submission_deadline_at: ''
+  });
+  
+  // Case file management state
+  const [selectedCompetition, setSelectedCompetition] = useState(null);
+  const [caseFiles, setCaseFiles] = useState([]);
+  const [uploadingCase, setUploadingCase] = useState(false);
+  const [loadingCaseFiles, setLoadingCaseFiles] = useState(false);
+  const caseFileInputRef = useRef(null);
 
   useEffect(() => {
     if (user?.role !== 'admin') {
@@ -33,10 +52,21 @@ function AdminDashboard() {
     else if (activeTab === 'competitions') fetchCompetitions();
   }, [activeTab]);
 
+  // Auto-clear messages
+  useEffect(() => {
+    if (error || success) {
+      const timer = setTimeout(() => {
+        setError('');
+        setSuccess('');
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [error, success]);
+
   const fetchStats = async () => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/admin/stats`, {
-        credentials: 'include'  // SECURITY: Send HttpOnly cookie
+        credentials: 'include'
       });
       if (res.ok) setStats(await res.json());
     } catch (e) { console.error(e); }
@@ -47,7 +77,7 @@ function AdminDashboard() {
     setLoading(true);
     try {
       const res = await fetch(`${BACKEND_URL}/api/admin/users`, {
-        credentials: 'include'  // SECURITY: Send HttpOnly cookie
+        credentials: 'include'
       });
       if (res.ok) setUsers(await res.json());
     } catch (e) { setError('Failed to load users'); }
@@ -69,10 +99,14 @@ function AdminDashboard() {
     try {
       const res = await fetch(`${BACKEND_URL}/api/admin/users/${userId}`, {
         method: 'PATCH',
-        credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', 
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ role })
       });
-      if (res.ok) fetchUsers();
+      if (res.ok) {
+        fetchUsers();
+        setSuccess('User role updated');
+      }
     } catch (e) { setError('Failed to update user'); }
   };
 
@@ -81,12 +115,20 @@ function AdminDashboard() {
     try {
       const res = await fetch(`${BACKEND_URL}/api/admin/competitions`, {
         method: 'POST',
-        credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', 
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newComp)
       });
       if (res.ok) {
-        setNewComp({ title: '', description: '', registration_start: '', registration_end: '', competition_start: '', competition_end: '', max_teams: 8, status: 'draft' });
+        setNewComp({ 
+          title: '', description: '', 
+          registration_start: '', registration_end: '', 
+          competition_start: '', competition_end: '', 
+          max_teams: 8, status: 'draft',
+          case_release_at: '', submission_deadline_at: ''
+        });
         fetchCompetitions();
+        setSuccess('Competition created successfully');
       } else {
         const errData = await res.json();
         setError(errData.detail || 'Failed to create competition');
@@ -98,12 +140,16 @@ function AdminDashboard() {
     try {
       const res = await fetch(`${BACKEND_URL}/api/admin/competitions/${compId}`, {
         method: 'PATCH',
-        credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', 
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates)
       });
       if (res.ok) {
-        setEditingComp(null);
         fetchCompetitions();
+        setSuccess('Competition updated');
+      } else {
+        const errData = await res.json();
+        setError(errData.detail || 'Failed to update');
       }
     } catch (e) { setError('Failed to update competition'); }
   };
@@ -115,8 +161,124 @@ function AdminDashboard() {
         method: 'DELETE',
         credentials: 'include'
       });
-      if (res.ok) fetchCompetitions();
+      if (res.ok) {
+        fetchCompetitions();
+        setSuccess('Competition deleted');
+      }
     } catch (e) { setError('Failed to delete competition'); }
+  };
+
+  // Case file management functions
+  const openCaseManager = async (comp) => {
+    setSelectedCompetition(comp);
+    await fetchCaseFiles(comp.id);
+  };
+
+  const closeCaseManager = () => {
+    setSelectedCompetition(null);
+    setCaseFiles([]);
+  };
+
+  const fetchCaseFiles = async (compId) => {
+    setLoadingCaseFiles(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/admin/competitions/${compId}/case-files`, {
+        credentials: 'include'
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setCaseFiles(data.files || []);
+      }
+    } catch (e) { 
+      console.error('Failed to load case files:', e);
+    }
+    setLoadingCaseFiles(false);
+  };
+
+  const uploadCaseFile = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedCompetition) return;
+
+    setUploadingCase(true);
+    setError('');
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const res = await fetch(
+        `${BACKEND_URL}/api/admin/competitions/${selectedCompetition.id}/case-files`,
+        {
+          method: 'POST',
+          credentials: 'include',
+          body: formData
+        }
+      );
+
+      if (res.ok) {
+        setSuccess('Case file uploaded successfully');
+        await fetchCaseFiles(selectedCompetition.id);
+      } else {
+        const errData = await res.json();
+        setError(errData.detail || 'Failed to upload file');
+      }
+    } catch (e) {
+      setError('Failed to upload case file');
+    }
+
+    setUploadingCase(false);
+    if (caseFileInputRef.current) {
+      caseFileInputRef.current.value = '';
+    }
+  };
+
+  const deleteCaseFile = async (fileName) => {
+    if (!window.confirm(`Delete "${fileName}"?`)) return;
+    
+    try {
+      const res = await fetch(
+        `${BACKEND_URL}/api/admin/competitions/${selectedCompetition.id}/case-files/${encodeURIComponent(fileName)}`,
+        {
+          method: 'DELETE',
+          credentials: 'include'
+        }
+      );
+
+      if (res.ok) {
+        setSuccess('File deleted');
+        await fetchCaseFiles(selectedCompetition.id);
+      } else {
+        setError('Failed to delete file');
+      }
+    } catch (e) {
+      setError('Failed to delete file');
+    }
+  };
+
+  const updateTimers = async (compId, caseRelease, submissionDeadline) => {
+    await updateCompetition(compId, {
+      case_release_at: caseRelease || null,
+      submission_deadline_at: submissionDeadline || null
+    });
+  };
+
+  const formatDateTime = (dateStr) => {
+    if (!dateStr) return '';
+    try {
+      return new Date(dateStr).toLocaleString();
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const formatDateTimeInput = (dateStr) => {
+    if (!dateStr) return '';
+    try {
+      const d = new Date(dateStr);
+      return d.toISOString().slice(0, 16);
+    } catch {
+      return '';
+    }
   };
 
   const tabs = [
@@ -155,8 +317,21 @@ function AdminDashboard() {
           ))}
         </div>
 
-        {error && <div className="bg-red-900/50 border border-red-500 text-red-300 px-4 py-3 rounded mb-4">{error}</div>}
+        {/* Messages */}
+        {error && (
+          <div className="bg-red-900/50 border border-red-500 text-red-300 px-4 py-3 rounded mb-4 flex items-center">
+            <AlertCircle className="w-5 h-5 mr-2" />
+            {error}
+          </div>
+        )}
+        {success && (
+          <div className="bg-green-900/50 border border-green-500 text-green-300 px-4 py-3 rounded mb-4 flex items-center">
+            <CheckCircle className="w-5 h-5 mr-2" />
+            {success}
+          </div>
+        )}
 
+        {/* Overview Tab */}
         {activeTab === 'overview' && stats && (
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="bg-gray-800 rounded-lg p-6">
@@ -178,6 +353,7 @@ function AdminDashboard() {
           </div>
         )}
 
+        {/* Users Tab */}
         {activeTab === 'users' && (
           <div className="bg-gray-800 rounded-lg overflow-hidden">
             <table className="w-full">
@@ -221,49 +397,100 @@ function AdminDashboard() {
           </div>
         )}
 
+        {/* Competitions Tab */}
         {activeTab === 'competitions' && (
           <div className="space-y-6">
+            {/* Create Competition Form */}
             <div className="bg-gray-800 rounded-lg p-6">
               <h3 className="text-lg font-medium text-white mb-4">Create New Competition</h3>
               <form onSubmit={createCompetition} className="grid grid-cols-2 gap-4">
-                <input type="text" placeholder="Title" value={newComp.title} onChange={e => setNewComp({...newComp, title: e.target.value})} className="bg-gray-700 text-white rounded px-3 py-2" required />
-                <input type="number" placeholder="Max Teams" value={newComp.max_teams} onChange={e => setNewComp({...newComp, max_teams: parseInt(e.target.value)})} className="bg-gray-700 text-white rounded px-3 py-2" />
-                <textarea placeholder="Description" value={newComp.description} onChange={e => setNewComp({...newComp, description: e.target.value})} className="bg-gray-700 text-white rounded px-3 py-2 col-span-2" rows="2" />
+                <input 
+                  type="text" 
+                  placeholder="Title" 
+                  value={newComp.title} 
+                  onChange={e => setNewComp({...newComp, title: e.target.value})} 
+                  className="bg-gray-700 text-white rounded px-3 py-2" 
+                  required 
+                />
+                <input 
+                  type="number" 
+                  placeholder="Max Teams" 
+                  value={newComp.max_teams} 
+                  onChange={e => setNewComp({...newComp, max_teams: parseInt(e.target.value)})} 
+                  className="bg-gray-700 text-white rounded px-3 py-2" 
+                />
+                <textarea 
+                  placeholder="Description" 
+                  value={newComp.description} 
+                  onChange={e => setNewComp({...newComp, description: e.target.value})} 
+                  className="bg-gray-700 text-white rounded px-3 py-2 col-span-2" 
+                  rows="2" 
+                />
                 <div>
                   <label className="text-gray-400 text-sm">Registration Start</label>
-                  <input type="date" value={newComp.registration_start} onChange={e => setNewComp({...newComp, registration_start: e.target.value})} className="bg-gray-700 text-white rounded px-3 py-2 w-full" required />
+                  <input 
+                    type="date" 
+                    value={newComp.registration_start} 
+                    onChange={e => setNewComp({...newComp, registration_start: e.target.value})} 
+                    className="bg-gray-700 text-white rounded px-3 py-2 w-full" 
+                    required 
+                  />
                 </div>
                 <div>
                   <label className="text-gray-400 text-sm">Registration End</label>
-                  <input type="date" value={newComp.registration_end} onChange={e => setNewComp({...newComp, registration_end: e.target.value})} className="bg-gray-700 text-white rounded px-3 py-2 w-full" required />
+                  <input 
+                    type="date" 
+                    value={newComp.registration_end} 
+                    onChange={e => setNewComp({...newComp, registration_end: e.target.value})} 
+                    className="bg-gray-700 text-white rounded px-3 py-2 w-full" 
+                    required 
+                  />
                 </div>
                 <div>
                   <label className="text-gray-400 text-sm">Competition Start</label>
-                  <input type="date" value={newComp.competition_start} onChange={e => setNewComp({...newComp, competition_start: e.target.value})} className="bg-gray-700 text-white rounded px-3 py-2 w-full" required />
+                  <input 
+                    type="date" 
+                    value={newComp.competition_start} 
+                    onChange={e => setNewComp({...newComp, competition_start: e.target.value})} 
+                    className="bg-gray-700 text-white rounded px-3 py-2 w-full" 
+                    required 
+                  />
                 </div>
                 <div>
                   <label className="text-gray-400 text-sm">Competition End</label>
-                  <input type="date" value={newComp.competition_end} onChange={e => setNewComp({...newComp, competition_end: e.target.value})} className="bg-gray-700 text-white rounded px-3 py-2 w-full" required />
+                  <input 
+                    type="date" 
+                    value={newComp.competition_end} 
+                    onChange={e => setNewComp({...newComp, competition_end: e.target.value})} 
+                    className="bg-gray-700 text-white rounded px-3 py-2 w-full" 
+                    required 
+                  />
                 </div>
-                <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white rounded px-4 py-2 col-span-2">Create Competition</button>
+                <button 
+                  type="submit" 
+                  className="bg-blue-600 hover:bg-blue-700 text-white rounded px-4 py-2 col-span-2"
+                >
+                  Create Competition
+                </button>
               </form>
             </div>
 
+            {/* Competitions List */}
             <div className="bg-gray-800 rounded-lg overflow-hidden">
               <table className="w-full">
                 <thead className="bg-gray-700">
                   <tr>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">Title</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">Status</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">Teams</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">Dates</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">Case Release</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">Submission Deadline</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-700">
                   {competitions.map(c => (
                     <tr key={c.id} className="hover:bg-gray-750">
-                      <td className="px-4 py-3 text-white">{c.title}</td>
+                      <td className="px-4 py-3 text-white font-medium">{c.title}</td>
                       <td className="px-4 py-3">
                         <select
                           value={c.status}
@@ -271,16 +498,41 @@ function AdminDashboard() {
                           className="bg-gray-700 text-white rounded px-2 py-1 text-sm"
                         >
                           <option value="draft">Draft</option>
+                          <option value="registration_open">Registration Open</option>
                           <option value="open">Open</option>
                           <option value="closed">Closed</option>
                         </select>
                       </td>
-                      <td className="px-4 py-3 text-gray-300">{c.max_teams}</td>
-                      <td className="px-4 py-3 text-gray-400 text-sm">
-                        {c.competition_start} - {c.competition_end}
+                      <td className="px-4 py-3">
+                        <input
+                          type="datetime-local"
+                          value={formatDateTimeInput(c.case_release_at)}
+                          onChange={(e) => updateTimers(c.id, e.target.value, c.submission_deadline_at)}
+                          className="bg-gray-700 text-white rounded px-2 py-1 text-sm w-48"
+                        />
+                      </td>
+                      <td className="px-4 py-3">
+                        <input
+                          type="datetime-local"
+                          value={formatDateTimeInput(c.submission_deadline_at)}
+                          onChange={(e) => updateTimers(c.id, c.case_release_at, e.target.value)}
+                          className="bg-gray-700 text-white rounded px-2 py-1 text-sm w-48"
+                        />
                       </td>
                       <td className="px-4 py-3 space-x-2">
-                        <button onClick={() => deleteCompetition(c.id)} className="text-red-400 hover:text-red-300 text-sm">Delete</button>
+                        <button 
+                          onClick={() => openCaseManager(c)} 
+                          className="text-yellow-400 hover:text-yellow-300 text-sm inline-flex items-center"
+                        >
+                          <FileText className="w-4 h-4 mr-1" />
+                          Case Files
+                        </button>
+                        <button 
+                          onClick={() => deleteCompetition(c.id)} 
+                          className="text-red-400 hover:text-red-300 text-sm"
+                        >
+                          Delete
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -292,6 +544,148 @@ function AdminDashboard() {
 
         {loading && <div className="text-center py-8 text-gray-400">Loading...</div>}
       </div>
+
+      {/* Case File Manager Modal */}
+      {selectedCompetition && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800 rounded-xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
+            {/* Modal Header */}
+            <div className="bg-gray-700 px-6 py-4 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-white">Case Files</h3>
+                <p className="text-sm text-gray-400">{selectedCompetition.title}</p>
+              </div>
+              <button 
+                onClick={closeCaseManager}
+                className="text-gray-400 hover:text-white"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto max-h-[60vh]">
+              {/* Timer Settings */}
+              <div className="bg-gray-700/50 rounded-lg p-4 mb-6">
+                <h4 className="text-white font-medium mb-3 flex items-center">
+                  <Clock className="w-5 h-5 mr-2 text-blue-400" />
+                  Timer Settings
+                </h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-gray-400 text-sm block mb-1">Case Release Time</label>
+                    <input
+                      type="datetime-local"
+                      value={formatDateTimeInput(selectedCompetition.case_release_at)}
+                      onChange={(e) => {
+                        updateTimers(selectedCompetition.id, e.target.value, selectedCompetition.submission_deadline_at);
+                        setSelectedCompetition({...selectedCompetition, case_release_at: e.target.value});
+                      }}
+                      className="bg-gray-700 text-white rounded px-3 py-2 w-full text-sm"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Teams can download case after this time</p>
+                  </div>
+                  <div>
+                    <label className="text-gray-400 text-sm block mb-1">Submission Deadline</label>
+                    <input
+                      type="datetime-local"
+                      value={formatDateTimeInput(selectedCompetition.submission_deadline_at)}
+                      onChange={(e) => {
+                        updateTimers(selectedCompetition.id, selectedCompetition.case_release_at, e.target.value);
+                        setSelectedCompetition({...selectedCompetition, submission_deadline_at: e.target.value});
+                      }}
+                      className="bg-gray-700 text-white rounded px-3 py-2 w-full text-sm"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Teams cannot submit after this time</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Upload Section */}
+              <div className="mb-6">
+                <h4 className="text-white font-medium mb-3 flex items-center">
+                  <Upload className="w-5 h-5 mr-2 text-green-400" />
+                  Upload Case Files
+                </h4>
+                <div className="flex items-center space-x-4">
+                  <input
+                    ref={caseFileInputRef}
+                    type="file"
+                    onChange={uploadCaseFile}
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.zip"
+                    className="hidden"
+                  />
+                  <button
+                    onClick={() => caseFileInputRef.current?.click()}
+                    disabled={uploadingCase}
+                    className="flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium disabled:opacity-50"
+                  >
+                    {uploadingCase ? (
+                      <>
+                        <Loader className="w-4 h-4 mr-2 animate-spin" />
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-4 h-4 mr-2" />
+                        Upload File
+                      </>
+                    )}
+                  </button>
+                  <span className="text-gray-400 text-sm">PDF, DOC, DOCX, XLS, XLSX, ZIP</span>
+                </div>
+              </div>
+
+              {/* Files List */}
+              <div>
+                <h4 className="text-white font-medium mb-3 flex items-center">
+                  <FileText className="w-5 h-5 mr-2 text-yellow-400" />
+                  Uploaded Files
+                </h4>
+                
+                {loadingCaseFiles ? (
+                  <div className="text-center py-8">
+                    <Loader className="w-6 h-6 animate-spin text-gray-400 mx-auto" />
+                  </div>
+                ) : caseFiles.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500 bg-gray-700/30 rounded-lg">
+                    <FileText className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                    No case files uploaded yet
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {caseFiles.map((file, index) => (
+                      <div 
+                        key={index}
+                        className="flex items-center justify-between bg-gray-700/50 rounded-lg px-4 py-3"
+                      >
+                        <div className="flex items-center">
+                          <FileText className="w-5 h-5 text-blue-400 mr-3" />
+                          <div>
+                            <p className="text-white font-medium">{file.name}</p>
+                            {file.size > 0 && (
+                              <p className="text-gray-400 text-xs">
+                                {(file.size / 1024).toFixed(1)} KB
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => deleteCaseFile(file.name)}
+                          className="text-red-400 hover:text-red-300 p-2"
+                          title="Delete file"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
