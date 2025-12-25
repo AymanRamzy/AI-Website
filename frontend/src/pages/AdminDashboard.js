@@ -58,7 +58,7 @@ function AdminDashboard() {
     setLoading(true);
     try {
       const res = await fetch(`${BACKEND_URL}/api/admin/competitions`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        credentials: 'include'
       });
       if (res.ok) setCompetitions(await res.json());
     } catch (e) { setError('Failed to load competitions'); }
@@ -69,7 +69,7 @@ function AdminDashboard() {
     try {
       const res = await fetch(`${BACKEND_URL}/api/admin/users/${userId}`, {
         method: 'PATCH',
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        credentials: 'include', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ role })
       });
       if (res.ok) fetchUsers();
@@ -81,7 +81,7 @@ function AdminDashboard() {
     try {
       const res = await fetch(`${BACKEND_URL}/api/admin/competitions`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        credentials: 'include', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newComp)
       });
       if (res.ok) {
@@ -98,7 +98,7 @@ function AdminDashboard() {
     try {
       const res = await fetch(`${BACKEND_URL}/api/admin/competitions/${compId}`, {
         method: 'PATCH',
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        credentials: 'include', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates)
       });
       if (res.ok) {
@@ -113,7 +113,7 @@ function AdminDashboard() {
     try {
       const res = await fetch(`${BACKEND_URL}/api/admin/competitions/${compId}`, {
         method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
+        credentials: 'include'
       });
       if (res.ok) fetchCompetitions();
     } catch (e) { setError('Failed to delete competition'); }
