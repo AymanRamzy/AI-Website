@@ -8,13 +8,15 @@ const API_URL = process.env.REACT_APP_BACKEND_URL || '';
 
 /**
  * AuthCallback - Handles email confirmation redirect from Supabase
- * BOARD-APPROVED: Auto-authenticate user and redirect to profile completion
+ * SECURITY HARDENED: Cookie-based authentication (P0 Frontend Integration)
  * 
  * Flow:
  * 1. User clicks confirmation link in email
  * 2. Supabase redirects to /auth/callback with tokens in URL hash
- * 3. This component extracts tokens, establishes session
- * 4. User is automatically logged in and redirected to profile completion
+ * 3. This component validates email confirmation
+ * 4. User is redirected to login (must log in again with confirmed email)
+ * 
+ * SECURITY: No token storage - user must login after email confirmation
  */
 function AuthCallback() {
   const navigate = useNavigate();
@@ -45,15 +47,14 @@ function AuthCallback() {
           }
           
           if (data?.session) {
-            // Store token for API calls
-            localStorage.setItem('token', data.session.access_token);
-            axios.defaults.headers.common['Authorization'] = `Bearer ${data.session.access_token}`;
+            // SECURITY: No localStorage or Authorization header
+            // User confirmed - redirect to login
             
             setStatus('success');
             
-            // Redirect to profile completion
+            // Redirect to login page (must login with confirmed email)
             setTimeout(() => {
-              navigate('/complete-profile', { replace: true });
+              navigate('/signin?confirmed=true', { replace: true });
             }, 1500);
             return;
           }
@@ -66,15 +67,14 @@ function AuthCallback() {
           }
           
           if (data?.session) {
-            // Store token for API calls
-            localStorage.setItem('token', data.session.access_token);
-            axios.defaults.headers.common['Authorization'] = `Bearer ${data.session.access_token}`;
+            // SECURITY: No localStorage or Authorization header
+            // User confirmed - redirect to login
             
             setStatus('success');
             
-            // Redirect to profile completion
+            // Redirect to login page (must login with confirmed email)
             setTimeout(() => {
-              navigate('/complete-profile', { replace: true });
+              navigate('/signin?confirmed=true', { replace: true });
             }, 1500);
             return;
           }
@@ -84,12 +84,12 @@ function AuthCallback() {
         const { data: sessionData } = await supabase.auth.getSession();
         
         if (sessionData?.session) {
-          localStorage.setItem('token', sessionData.session.access_token);
-          axios.defaults.headers.common['Authorization'] = `Bearer ${sessionData.session.access_token}`;
+          // SECURITY: No localStorage or Authorization header
+          // User confirmed - redirect to login
           
           setStatus('success');
           setTimeout(() => {
-            navigate('/complete-profile', { replace: true });
+            navigate('/signin?confirmed=true', { replace: true });
           }, 1500);
           return;
         }
