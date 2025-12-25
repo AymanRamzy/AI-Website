@@ -1782,24 +1782,21 @@ async def submit_team_solution(
     safe_filename = f"submission_{team_id}{file_ext}"
     file_path = f"submissions/{comp_id}/{team_id}/{safe_filename}"
     
+    # Use application/octet-stream to bypass MIME type restrictions in Supabase storage
+    upload_content_type = 'application/octet-stream'
+    
     try:
         # Try team-submissions bucket first, fallback to cfo-cvs
-        bucket_name = "team-submissions"
+        bucket_name = "cfo-cvs"  # Use existing bucket that we know exists
         try:
             upload_result = supabase_admin.storage.from_(bucket_name).upload(
                 path=file_path,
                 file=contents,
-                file_options={"content-type": content_type or 'application/octet-stream', "upsert": "true"}
+                file_options={"content-type": upload_content_type, "upsert": "true"}
             )
         except Exception as bucket_err:
-            # Fallback to cfo-cvs bucket if team-submissions doesn't exist
-            logger.warning(f"team-submissions bucket not found, using cfo-cvs: {bucket_err}")
-            bucket_name = "cfo-cvs"
-            upload_result = supabase_admin.storage.from_(bucket_name).upload(
-                path=file_path,
-                file=contents,
-                file_options={"content-type": content_type or 'application/octet-stream', "upsert": "true"}
-            )
+            logger.error(f"Storage upload failed: {bucket_err}")
+            raise HTTPException(status_code=500, detail="Failed to upload file to storage")
         
         if hasattr(upload_result, 'error') and upload_result.error:
             logger.error(f"Upload error: {upload_result.error}")
