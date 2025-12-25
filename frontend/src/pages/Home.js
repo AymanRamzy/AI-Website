@@ -64,7 +64,7 @@ function Home() {
         {/* Hero Content */}
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <div className="inline-block mb-4 px-4 py-2 bg-modex-accent/20 border-2 border-modex-accent rounded-full">
-            <p className="text-modex-accent font-bold text-sm sm:text-base uppercase tracking-wider">
+            <p className="text-white/90 font-bold text-sm sm:text-base uppercase tracking-wider">
               Built for EXecution. Driven by EXcellence.
             </p>
           </div>
