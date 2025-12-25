@@ -63,6 +63,16 @@ function Home() {
 
         {/* Hero Content */}
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          {/* Large Prominent Logo */}
+          <div className="mb-8">
+            <img 
+              src="/logo-main.png" 
+              alt="ModEX" 
+              className="mx-auto w-auto h-32 sm:h-40 md:h-48 lg:h-56"
+              style={{ objectFit: 'contain', filter: 'drop-shadow(0 4px 20px rgba(0,0,0,0.3))' }}
+            />
+          </div>
+
           <div className="inline-block mb-4 px-4 py-2 bg-modex-accent/20 border-2 border-modex-accent rounded-full">
             <p className="text-white/90 font-bold text-sm sm:text-base uppercase tracking-wider">
               Built for EXecution. Driven by EXcellence.
