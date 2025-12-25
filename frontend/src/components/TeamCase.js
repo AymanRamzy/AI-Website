@@ -44,6 +44,11 @@ function TeamCase({ teamId, competition }) {
     }
   };
 
+  useEffect(() => {
+    loadCaseFile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [competition]);
+
   const handleDownload = async () => {
     if (!caseFile?.url) return;
     
