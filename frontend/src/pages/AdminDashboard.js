@@ -39,30 +39,6 @@ function AdminDashboard() {
   const [loadingCaseFiles, setLoadingCaseFiles] = useState(false);
   const caseFileInputRef = useRef(null);
 
-  useEffect(() => {
-    if (user?.role !== 'admin') {
-      navigate('/dashboard');
-      return;
-    }
-    fetchStats();
-  }, [user, navigate]);
-
-  useEffect(() => {
-    if (activeTab === 'users') fetchUsers();
-    else if (activeTab === 'competitions') fetchCompetitions();
-  }, [activeTab]);
-
-  // Auto-clear messages
-  useEffect(() => {
-    if (error || success) {
-      const timer = setTimeout(() => {
-        setError('');
-        setSuccess('');
-      }, 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [error, success]);
-
   const fetchStats = async () => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/admin/stats`, {
@@ -94,6 +70,32 @@ function AdminDashboard() {
     } catch (e) { setError('Failed to load competitions'); }
     setLoading(false);
   };
+
+  useEffect(() => {
+    if (user?.role !== 'admin') {
+      navigate('/dashboard');
+      return;
+    }
+    fetchStats();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, navigate]);
+
+  useEffect(() => {
+    if (activeTab === 'users') fetchUsers();
+    else if (activeTab === 'competitions') fetchCompetitions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
+
+  // Auto-clear messages
+  useEffect(() => {
+    if (error || success) {
+      const timer = setTimeout(() => {
+        setError('');
+        setSuccess('');
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [error, success]);
 
   const updateUserRole = async (userId, role) => {
     try {
