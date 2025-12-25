@@ -1869,6 +1869,28 @@ async def submit_team_solution(
         logger.error(f"Team fetch failed: {e}")
         raise HTTPException(status_code=500, detail="Failed to retrieve team information")
     
+    # CRITICAL: Check submission deadline
+    try:
+        comp_result = supabase.table("competitions") \
+            .select("submission_deadline_at") \
+            .eq("id", comp_id) \
+            .execute()
+        
+        if comp_result.data:
+            deadline = comp_result.data[0].get("submission_deadline_at")
+            if deadline:
+                deadline_dt = datetime.fromisoformat(deadline.replace('Z', '+00:00'))
+                deadline_naive = deadline_dt.replace(tzinfo=None)
+                if datetime.utcnow() > deadline_naive:
+                    raise HTTPException(
+                        status_code=403,
+                        detail="Submission deadline has passed. No more submissions are accepted."
+                    )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.warning(f"Deadline check warning: {e}")
+    
     # Check if team already has a submission
     try:
         existing = supabase.table("team_submissions") \
