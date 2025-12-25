@@ -42,12 +42,13 @@ function Layout({ children }) {
       <nav className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-20">
-            {/* Logo */}
-            <Link to="/" className="flex-shrink-0 flex items-center">
+            {/* Logo - Full ModEX Logo (Icon + Text) */}
+            <Link to="/" className="flex-shrink-0">
               <img 
-                src="/modex-logo-full.png" 
+                src="/logo-main.png" 
                 alt="ModEX - Financial Modeling Excellence" 
-                className="h-12 w-auto object-contain"
+                className="h-10 w-auto"
+                style={{ objectFit: 'contain' }}
               />
             </Link>
 
