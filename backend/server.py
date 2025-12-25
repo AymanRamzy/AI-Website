@@ -23,7 +23,14 @@ from admin_router import router as admin_router
 from chat_service import router as chat_router
 from socketio_server import socket_app
 
+# OPTIONAL IMPROVEMENT: Rate limiting middleware
+from utils.rate_limiter import SimpleRateLimiter
+
 app = FastAPI(title="ModEX Platform")
+
+# OPTIONAL IMPROVEMENT: Add rate limiting middleware
+# (applies to auth endpoints only: login, register, upload-cv)
+app.add_middleware(SimpleRateLimiter)
 
 app.add_middleware(
     CORSMiddleware,
