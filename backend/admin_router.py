@@ -125,7 +125,7 @@ async def update_competition(comp_id: str, updates: CompetitionUpdate, current_u
 @router.delete("/competitions/{comp_id}")
 async def delete_competition(comp_id: str, current_user: User = Depends(get_admin_user)):
     supabase = get_supabase_client()
-    response = supabase.table('competitions').delete().eq('id', comp_id).execute()
+    supabase.table('competitions').delete().eq('id', comp_id).execute()
     return {"message": "Competition deleted"}
 
 
