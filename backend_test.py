@@ -325,6 +325,109 @@ class CFOAPITester:
         
         return success_count >= 3  # Competition + Team creation + Team retrieval
     
+    def test_team_submission_apis(self) -> bool:
+        """Test team submission APIs (Case and Submission tabs functionality)"""
+        self.log("Testing Team Submission APIs...")
+        
+        if "participant" not in self.test_tokens or "alpha" not in self.test_teams:
+            self.log("❌ Team or participant user not available for submission tests", "ERROR")
+            return False
+        
+        success_count = 0
+        team_id = self.test_teams["alpha"]["id"]
+        competition_id = self.test_competitions["test_comp"]["id"]
+        
+        # Test 1: GET team submission when no submission exists (should return 404)
+        try:
+            response = self.session.get(
+                f"{API_BASE}/teams/{team_id}/submission",
+                params={"competition_id": competition_id},
+                headers={"Authorization": f"Bearer {self.test_tokens['participant']}"}
+            )
+            
+            if response.status_code == 404:
+                self.log("✅ GET team submission returns 404 when no submission exists")
+                success_count += 1
+            else:
+                self.log(f"❌ Expected 404 for no submission, got: {response.status_code}", "ERROR")
+                
+        except Exception as e:
+            self.log(f"❌ GET team submission error: {str(e)}", "ERROR")
+        
+        # Test 2: POST team submission with valid file
+        try:
+            # Create test file content
+            test_content = b"Test team solution content for CFO competition case study"
+            files = {'file': ('team_solution.pdf', test_content, 'application/pdf')}
+            data = {
+                'team_id': team_id,
+                'competition_id': competition_id
+            }
+            
+            response = self.session.post(
+                f"{API_BASE}/teams/{team_id}/submission",
+                data=data,
+                files=files,
+                headers={"Authorization": f"Bearer {self.test_tokens['participant']}"}
+            )
+            
+            if response.status_code == 201:
+                self.log("✅ POST team submission successful with valid PDF")
+                success_count += 1
+            else:
+                self.log(f"❌ Team submission failed: {response.status_code} - {response.text}", "ERROR")
+                
+        except Exception as e:
+            self.log(f"❌ POST team submission error: {str(e)}", "ERROR")
+        
+        # Test 3: File type validation - try invalid file type
+        try:
+            invalid_content = b"Invalid file type content"
+            files = {'file': ('invalid.txt', invalid_content, 'text/plain')}
+            data = {
+                'team_id': team_id,
+                'competition_id': competition_id
+            }
+            
+            response = self.session.post(
+                f"{API_BASE}/teams/{team_id}/submission",
+                data=data,
+                files=files,
+                headers={"Authorization": f"Bearer {self.test_tokens['participant']}"}
+            )
+            
+            if response.status_code in [400, 422]:  # Should reject invalid file type
+                self.log("✅ File type validation working - rejects invalid file types")
+                success_count += 1
+            else:
+                self.log(f"❌ Should reject invalid file type, got: {response.status_code}", "ERROR")
+                
+        except Exception as e:
+            self.log(f"❌ File type validation test error: {str(e)}", "ERROR")
+        
+        # Test 4: GET team submission after successful upload
+        try:
+            response = self.session.get(
+                f"{API_BASE}/teams/{team_id}/submission",
+                params={"competition_id": competition_id},
+                headers={"Authorization": f"Bearer {self.test_tokens['participant']}"}
+            )
+            
+            if response.status_code == 200:
+                submission_data = response.json()
+                if submission_data.get("submitted") and submission_data.get("file_name"):
+                    self.log("✅ GET team submission returns submission data after upload")
+                    success_count += 1
+                else:
+                    self.log("❌ Submission data missing required fields", "ERROR")
+            else:
+                self.log(f"❌ GET submission after upload failed: {response.status_code}", "ERROR")
+                
+        except Exception as e:
+            self.log(f"❌ GET submission after upload error: {str(e)}", "ERROR")
+        
+        return success_count >= 3  # At least 3 out of 4 tests should pass
+    
     def run_all_tests(self) -> Dict[str, bool]:
         """Run all test suites and return results"""
         self.log("=== CFO Competition Backend API Testing Started ===")
