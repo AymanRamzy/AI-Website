@@ -1649,8 +1649,6 @@ async def get_team_submission(
     current_user: User = Depends(get_current_user)
 ):
     """Get team's existing submission for a competition."""
-    import logging
-    logger = logging.getLogger(__name__)
     supabase = get_supabase_client()
     
     # Verify user is a team member
