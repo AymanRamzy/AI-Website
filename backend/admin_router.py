@@ -507,3 +507,219 @@ async def get_admin_stats(current_user: User = Depends(get_admin_user)):
         "total_applications": total_apps,
         "pending_applications": pending_apps
     }
+
+
+
+# =========================================================
+# ADMIN CASE FILE MANAGEMENT
+# =========================================================
+
+@router.post("/competitions/{competition_id}/case-files")
+async def upload_case_file(
+    competition_id: str,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_admin_user)
+):
+    """
+    Upload case file for a competition (Admin only).
+    Files stored in: team-submissions/Cases/{competition_id}/
+    Allowed: PDF, DOC, DOCX, XLS, XLSX, ZIP
+    """
+    import logging
+    from supabase import create_client
+    import uuid as uuid_lib
+    
+    logger = logging.getLogger(__name__)
+    supabase = get_supabase_client()
+    
+    # Validate file
+    if not file or not file.filename:
+        raise HTTPException(status_code=400, detail="No file provided")
+    
+    # Verify competition exists
+    comp_result = supabase.table("competitions").select("id, status, competition_start").eq("id", competition_id).execute()
+    if not comp_result.data:
+        raise HTTPException(status_code=404, detail="Competition not found")
+    
+    competition = comp_result.data[0]
+    
+    # Check if competition has started (block replacement after start)
+    comp_start = competition.get("competition_start")
+    if comp_start:
+        try:
+            start_dt = datetime.fromisoformat(comp_start.replace('Z', '+00:00'))
+            if datetime.utcnow().replace(tzinfo=start_dt.tzinfo) > start_dt:
+                raise HTTPException(
+                    status_code=403, 
+                    detail="Cannot upload case files after competition has started"
+                )
+        except ValueError:
+            pass
+    
+    # Validate file extension
+    file_ext = os.path.splitext(file.filename or '')[1].lower()
+    ALLOWED_EXTENSIONS = {'.pdf', '.doc', '.docx', '.xls', '.xlsx', '.zip'}
+    
+    if file_ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid file type. Allowed: PDF, DOC, DOCX, XLS, XLSX, ZIP"
+        )
+    
+    MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB for case files
+    
+    # Read file
+    try:
+        contents = await file.read()
+    except Exception as e:
+        logger.error(f"File read error: {e}")
+        raise HTTPException(status_code=400, detail="Failed to read file")
+    
+    if len(contents) == 0:
+        raise HTTPException(status_code=400, detail="File is empty")
+    
+    if len(contents) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=413, detail="File size exceeds 50MB limit")
+    
+    # Setup storage client
+    SUPABASE_URL = os.environ.get("SUPABASE_URL")
+    SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    
+    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+        raise HTTPException(status_code=500, detail="Storage configuration error")
+    
+    supabase_admin = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+    
+    # Build file path: Cases/{competition_id}/{original_filename}
+    safe_filename = file.filename.replace(" ", "_")
+    file_path = f"Cases/{competition_id}/{safe_filename}"
+    
+    try:
+        # Remove existing file with same name (for replacement)
+        try:
+            supabase_admin.storage.from_("team-submissions").remove([file_path])
+        except Exception:
+            pass
+        
+        # Upload file
+        upload_result = supabase_admin.storage.from_("team-submissions").upload(
+            path=file_path,
+            file=contents,
+            file_options={"content-type": "application/octet-stream", "upsert": "true"}
+        )
+        
+        if hasattr(upload_result, 'error') and upload_result.error:
+            logger.error(f"Storage upload error: {upload_result.error}")
+            raise HTTPException(status_code=500, detail="Failed to upload file")
+        
+        logger.info(f"Admin {current_user.id} uploaded case file: {file_path}")
+        
+        return {
+            "success": True,
+            "file_name": file.filename,
+            "file_path": file_path,
+            "file_size": len(contents),
+            "uploaded_at": datetime.utcnow().isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Case file upload error: {type(e).__name__}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to upload case file")
+
+
+@router.get("/competitions/{competition_id}/case-files")
+async def list_case_files(
+    competition_id: str,
+    current_user: User = Depends(get_admin_user)
+):
+    """List all case files for a competition (Admin only)."""
+    import logging
+    from supabase import create_client
+    
+    logger = logging.getLogger(__name__)
+    supabase = get_supabase_client()
+    
+    # Verify competition exists
+    comp_result = supabase.table("competitions").select("id").eq("id", competition_id).execute()
+    if not comp_result.data:
+        raise HTTPException(status_code=404, detail="Competition not found")
+    
+    SUPABASE_URL = os.environ.get("SUPABASE_URL")
+    SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    
+    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+        raise HTTPException(status_code=500, detail="Storage configuration error")
+    
+    supabase_admin = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+    
+    try:
+        # List files in Cases/{competition_id}/
+        folder_path = f"Cases/{competition_id}"
+        list_result = supabase_admin.storage.from_("team-submissions").list(folder_path)
+        
+        files = []
+        for item in list_result or []:
+            if item.get("name") and not item.get("name").startswith("."):
+                files.append({
+                    "name": item.get("name"),
+                    "size": item.get("metadata", {}).get("size", 0),
+                    "created_at": item.get("created_at"),
+                    "path": f"{folder_path}/{item.get('name')}"
+                })
+        
+        return {"files": files}
+        
+    except Exception as e:
+        logger.error(f"List case files error: {e}")
+        return {"files": []}
+
+
+@router.delete("/competitions/{competition_id}/case-files/{file_name}")
+async def delete_case_file(
+    competition_id: str,
+    file_name: str,
+    current_user: User = Depends(get_admin_user)
+):
+    """Delete a case file (Admin only, before competition start)."""
+    import logging
+    from supabase import create_client
+    
+    logger = logging.getLogger(__name__)
+    supabase = get_supabase_client()
+    
+    # Verify competition exists and hasn't started
+    comp_result = supabase.table("competitions").select("id, competition_start").eq("id", competition_id).execute()
+    if not comp_result.data:
+        raise HTTPException(status_code=404, detail="Competition not found")
+    
+    competition = comp_result.data[0]
+    comp_start = competition.get("competition_start")
+    if comp_start:
+        try:
+            start_dt = datetime.fromisoformat(comp_start.replace('Z', '+00:00'))
+            if datetime.utcnow().replace(tzinfo=start_dt.tzinfo) > start_dt:
+                raise HTTPException(status_code=403, detail="Cannot delete case files after competition has started")
+        except ValueError:
+            pass
+    
+    SUPABASE_URL = os.environ.get("SUPABASE_URL")
+    SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    
+    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+        raise HTTPException(status_code=500, detail="Storage configuration error")
+    
+    supabase_admin = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+    
+    try:
+        file_path = f"Cases/{competition_id}/{file_name}"
+        supabase_admin.storage.from_("team-submissions").remove([file_path])
+        
+        logger.info(f"Admin {current_user.id} deleted case file: {file_path}")
+        
+        return {"success": True, "message": "File deleted"}
+        
+    except Exception as e:
+        logger.error(f"Delete case file error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to delete file")
