@@ -1,6 +1,7 @@
-from fastapi import APIRouter, HTTPException, Depends, status
+from fastapi import APIRouter, HTTPException, Depends, status, UploadFile, File
 from typing import List, Optional
 from datetime import datetime
+import os
 
 from supabase_client import get_supabase_client
 from auth import get_admin_user
