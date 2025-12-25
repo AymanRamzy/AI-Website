@@ -1,3 +1,7 @@
+/**
+ * AdminDashboard - Admin management interface
+ * SECURITY HARDENED: Cookie-based authentication (P0 Frontend Integration)
+ */
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -5,7 +9,7 @@ import { useAuth } from '../context/AuthContext';
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || '';
 
 function AdminDashboard() {
-  const { user, token, logout } = useAuth();
+  const { user, logout } = useAuth();  // SECURITY: Removed token (uses cookies)
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('overview');
   const [stats, setStats] = useState(null);
@@ -32,7 +36,7 @@ function AdminDashboard() {
   const fetchStats = async () => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/admin/stats`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        credentials: 'include'  // SECURITY: Send HttpOnly cookie
       });
       if (res.ok) setStats(await res.json());
     } catch (e) { console.error(e); }
@@ -43,7 +47,7 @@ function AdminDashboard() {
     setLoading(true);
     try {
       const res = await fetch(`${BACKEND_URL}/api/admin/users`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        credentials: 'include'  // SECURITY: Send HttpOnly cookie
       });
       if (res.ok) setUsers(await res.json());
     } catch (e) { setError('Failed to load users'); }
