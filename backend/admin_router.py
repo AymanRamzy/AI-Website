@@ -522,7 +522,7 @@ async def upload_case_file(
 ):
     """
     Upload case file for a competition (Admin only).
-    Files stored in: team-submissions/Cases/{competition_id}/
+    Files stored in: Team-submissions/Cases/{competition_id}/
     Allowed: PDF, DOC, DOCX, XLS, XLSX, ZIP
     """
     import logging
@@ -597,12 +597,12 @@ async def upload_case_file(
     try:
         # Remove existing file with same name (for replacement)
         try:
-            supabase_admin.storage.from_("team-submissions").remove([file_path])
+            supabase_admin.storage.from_("Team-submissions").remove([file_path])
         except Exception:
             pass
         
         # Upload file
-        upload_result = supabase_admin.storage.from_("team-submissions").upload(
+        upload_result = supabase_admin.storage.from_("Team-submissions").upload(
             path=file_path,
             file=contents,
             file_options={"content-type": "application/octet-stream", "upsert": "true"}
@@ -657,7 +657,7 @@ async def list_case_files(
     try:
         # List files in Cases/{competition_id}/
         folder_path = f"Cases/{competition_id}"
-        list_result = supabase_admin.storage.from_("team-submissions").list(folder_path)
+        list_result = supabase_admin.storage.from_("Team-submissions").list(folder_path)
         
         files = []
         for item in list_result or []:
@@ -714,7 +714,7 @@ async def delete_case_file(
     
     try:
         file_path = f"Cases/{competition_id}/{file_name}"
-        supabase_admin.storage.from_("team-submissions").remove([file_path])
+        supabase_admin.storage.from_("Team-submissions").remove([file_path])
         
         logger.info(f"Admin {current_user.id} deleted case file: {file_path}")
         

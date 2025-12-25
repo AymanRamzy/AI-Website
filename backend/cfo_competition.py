@@ -1729,7 +1729,7 @@ async def get_team_case_files(
     try:
         # List files in Cases/{competition_id}/
         folder_path = f"Cases/{competition_id}"
-        list_result = supabase_admin.storage.from_("team-submissions").list(folder_path)
+        list_result = supabase_admin.storage.from_("Team-submissions").list(folder_path)
         
         files = []
         for item in list_result or []:
@@ -1737,7 +1737,7 @@ async def get_team_case_files(
                 file_path = f"{folder_path}/{item.get('name')}"
                 
                 # Generate signed URL (15 min = 900 seconds)
-                signed_url_result = supabase_admin.storage.from_("team-submissions").create_signed_url(
+                signed_url_result = supabase_admin.storage.from_("Team-submissions").create_signed_url(
                     file_path, 900
                 )
                 
@@ -1957,8 +1957,8 @@ async def submit_team_solution(
     file_path = f"Submissions/{comp_id}/{team_id}/{unique_id}{file_ext}"
     
     try:
-        # Upload file to team-submissions bucket
-        upload_result = supabase_admin.storage.from_("team-submissions").upload(
+        # Upload file to Team-submissions bucket
+        upload_result = supabase_admin.storage.from_("Team-submissions").upload(
             path=file_path,
             file=contents,
             file_options={"content-type": "application/octet-stream", "upsert": "true"}
