@@ -92,8 +92,14 @@ async def create_competition(comp: CompetitionCreate, current_user: User = Depen
         "competition_start": comp.competition_start,
         "competition_end": comp.competition_end,
         "max_teams": comp.max_teams,
-        "status": comp.status if comp.status in ["draft", "open", "closed"] else "draft"
+        "status": comp.status if comp.status in ["draft", "open", "closed", "registration_open"] else "draft"
     }
+    
+    # Add timer fields if provided
+    if comp.case_release_at:
+        comp_data["case_release_at"] = comp.case_release_at
+    if comp.submission_deadline_at:
+        comp_data["submission_deadline_at"] = comp.submission_deadline_at
     
     try:
         response = supabase.table('competitions').insert(comp_data).execute()
