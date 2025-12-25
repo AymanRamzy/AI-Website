@@ -252,6 +252,30 @@ async def login(user_credentials: UserLogin, response: Response):
     }
 
 
+@router.post("/auth/logout")
+async def logout(response: Response, current_user: User = Depends(get_current_user)):
+    """
+    SECURITY: Logout and clear session cookie
+    
+    P0-1: Clears HttpOnly cookie
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    # Clear the HttpOnly cookie
+    response.delete_cookie(
+        key="session_token",
+        path="/",
+        httponly=True,
+        secure=True,
+        samesite="lax"
+    )
+    
+    logger.info(f"User logged out: {current_user.email}")
+    
+    return {"message": "Logged out successfully"}
+
+
 @router.get("/auth/me", response_model=UserResponse)
 async def get_me(current_user: User = Depends(get_current_user)):
     """Get current user with profile_completed status"""
