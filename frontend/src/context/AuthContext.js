@@ -26,6 +26,8 @@ export const AuthProvider = ({ children }) => {
   /**
    * SECURITY: Configure axios to use cookies (withCredentials)
    * This allows HttpOnly cookies to be sent automatically with requests
+   * 
+   * IMPROVEMENT: Global 401 interceptor for clean auth failure handling
    */
   useEffect(() => {
     // Enable credentials (cookies) for all requests to the backend
@@ -33,6 +35,35 @@ export const AuthProvider = ({ children }) => {
     
     // Remove any Authorization header (we use cookies now)
     delete axios.defaults.headers.common['Authorization'];
+    
+    // OPTIONAL IMPROVEMENT: Global 401 Interceptor
+    // Automatically handle session expiry across the app
+    const responseInterceptor = axios.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        // Handle 401 Unauthorized (expired or invalid session)
+        if (error.response?.status === 401) {
+          // Only redirect if not already on auth pages
+          const authPages = ['/signin', '/signup', '/auth/callback'];
+          const currentPath = window.location.pathname;
+          
+          if (!authPages.includes(currentPath)) {
+            // Clear user state
+            setUser(null);
+            
+            // Redirect to login with return URL
+            window.location.href = `/signin?redirect=${encodeURIComponent(currentPath)}`;
+          }
+        }
+        
+        return Promise.reject(error);
+      }
+    );
+    
+    // Cleanup interceptor on unmount
+    return () => {
+      axios.interceptors.response.eject(responseInterceptor);
+    };
   }, []);
 
   /**
