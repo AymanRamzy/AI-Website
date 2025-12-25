@@ -1,0 +1,286 @@
+You are a senior full-stack architect and technical lead.
+
+Build a production-ready full-stack web platform called **ModEX** consisting of:
+1) A professional marketing website
+2) A complete CFO Competition & Qualification Management System
+
+====================================================
+TECH STACK (MANDATORY – DO NOT CHANGE)
+====================================================
+Frontend:
+- React + Vite
+- Tailwind CSS (NO UI libraries)
+
+Backend:
+- FastAPI (async)
+- MongoDB using Motor (async driver)
+
+Auth & Security:
+- JWT authentication
+- bcrypt password hashing
+- Role-based access control
+
+Architecture:
+- REST APIs
+- Dependency injection for DB
+- No duplicated DB connections
+- Realtime-ready (polling now, websockets later)
+
+File uploads:
+- Local storage under /uploads
+- Abstracted for future S3
+- Metadata stored in MongoDB
+
+====================================================
+PROJECT STRUCTURE
+====================================================
+/frontend
+/backend
+/shared (constants, enums)
+
+/backend:
+- server.py (main app)
+- db.py (single MongoDB client + DI)
+- auth.py (JWT, roles, permissions)
+- models.py (Pydantic + DB schemas)
+- routers/
+  - auth.py
+  - users.py
+  - competitions.py
+  - teams.py
+  - tasks.py
+  - submissions.py
+  - judges.py
+  - admin.py
+  - cfo_applications.py
+
+/frontend:
+- pages/
+  - Home
+  - FMVA
+  - 100FM
+  - Services
+  - Competitions
+  - About
+  - Testimonials
+  - Community
+  - FAQ
+  - Contact
+  - Login
+  - Register
+  - ParticipantDashboard
+  - TeamDashboard
+  - JudgeDashboard
+  - AdminDashboard
+  - CFOApplicationsDashboard
+- components/
+- context/AuthContext
+- protected routes
+
+====================================================
+SYSTEM ROLES (AUTHORIZATION)
+====================================================
+system_role:
+- ADMIN
+- JUDGE
+- USER
+
+team_role (inside teams):
+- Leader
+- Analyst
+- Designer
+- Strategist
+- Communicator
+
+====================================================
+MARKETING WEBSITE REQUIREMENTS
+====================================================
+Rebuild the ModEX website like the Emergent version.
+
+Hero:
+- Headline: “The Global Hub for Financial Modeling Excellence”
+- Subtitle: Training • Consulting • Competitions • Community
+- CTA buttons: Explore Programs / Join Community
+
+Sections:
+- Who We Serve
+- What We Do
+- Why ModEX
+- Featured Programs (FMVA Arabic, 100FM, FP&A Bootcamp)
+- Pathway to Mastery
+- Testimonials
+- Free Learning & Community
+- Footer (Programs, Company, Contact)
+
+Style:
+- Professional
+- Dark finance theme
+- Bold & Energetic
+- Clean spacing
+- Tailwind only
+
+====================================================
+CFO COMPETITION – GLOBAL RULES
+====================================================
+- Competitions run monthly / bi-monthly
+- Max 40 participants per competition
+- Max 8 teams per competition
+- Max 5 members per team
+- User can join ONLY ONE team per competition
+- Enforce all rules in backend
+
+====================================================
+CFO APPLICATION & QUALIFICATION SYSTEM (CRITICAL)
+====================================================
+Before joining any CFO Competition, users must be qualified.
+
+FLOW:
+1) User applies to CFO Competition
+2) User completes CFO questionnaire
+3) User uploads CV (PDF/DOCX)
+4) System auto-scores candidate
+5) Admin reviews & adjusts scores
+6) System selects / approves / rejects / waitlists candidates
+7) ONLY approved CFOs can create or join teams
+
+DATA MODELS:
+- cfo_applications:
+  {
+    id,
+    user_id,
+    competition_id,
+    cv_file_path,
+    years_experience,
+    job_title,
+    industry,
+    certifications[],
+    leadership_answers[],
+    availability_score,
+    auto_score,
+    manual_score,
+    final_score,
+    status:
+      PENDING |
+      AUTO_REJECTED |
+      SHORTLISTED |
+      APPROVED |
+      REJECTED |
+      WAITLISTED,
+    created_at
+  }
+
+AUTO-SCORING LOGIC:
+- Years of experience (weighted)
+- Certifications (FMVA, CMA, CFA, CPA, etc.)
+- Leadership willingness
+- Availability & commitment
+- Industry relevance
+
+ADMIN CFO DASHBOARD:
+- View all applications
+- Filter & sort by score, experience, certifications
+- View CV inline
+- View full questionnaire
+- Adjust scores manually
+- Auto-select top N candidates (e.g. top 100 of 1000)
+- Export results (CSV / Excel)
+- Audit log for decisions
+
+====================================================
+FEATURE PRIORITY – BUILD STRICTLY IN THIS ORDER
+====================================================
+
+MILESTONE 0 — FOUNDATION
+- Project scaffolding
+- MongoDB connection
+- Health check endpoint
+- Env configuration
+STOP AND VERIFY
+
+MILESTONE 1 — AUTH
+- Register
+- Login
+- JWT protection
+- /me endpoint
+STOP AND VERIFY
+
+MILESTONE 2 — PARTICIPANT DASHBOARD
+- View competitions
+- View application status
+- View team status
+- View submissions
+STOP AND VERIFY
+
+MILESTONE 3 — TEAM DASHBOARD
+- Create team
+- Join team via Team ID
+- Invite placeholder
+- Assign roles (Leader only)
+- Team chat placeholder
+- Upload submissions
+STOP AND VERIFY
+
+MILESTONE 4 — TASKS MODULE
+- Admin creates tasks
+- Tasks have deadlines
+- Teams view tasks
+- Teams submit files
+STOP AND VERIFY
+
+MILESTONE 5 — JUDGE SCORING
+- Assign judges
+- Criteria-based scoring
+- Auto total score
+- Lock submissions after scoring
+STOP AND VERIFY
+
+MILESTONE 6 — LEADERBOARD
+- Polling-based live leaderboard
+- Ranking logic
+- Tie-breaker rules
+STOP AND VERIFY
+
+MILESTONE 7 — ADMIN CONTROL PANEL
+- Manage users
+- Manage competitions
+- Assign judges
+- Approve submissions
+- Access all data
+STOP AND VERIFY
+
+====================================================
+PAYMENTS (PHASED – DO NOT FULLY IMPLEMENT NOW)
+====================================================
+- Support free competitions
+- Paid competitions ($15 / 350–500 EGP)
+- Stripe integration (Phase 1)
+- Paymob ready (Phase 2)
+- Coupon codes (future-ready)
+Create DB fields and placeholders only.
+
+====================================================
+QUALITY REQUIREMENTS
+====================================================
+- Clean, readable code
+- Clear comments
+- Single DB connection
+- Strong authorization checks
+- Audit logs for admin actions
+- LMS-ready architecture
+
+====================================================
+DELIVERABLES
+====================================================
+- Fully working frontend + backend
+- Seed data:
+  - 1 Admin
+  - 1 Judge
+  - 2 Users
+  - 1 Competition
+  - 1 CFO application
+  - 1 Team
+  - 1 Task
+- README with run instructions
+- docs/testing.md with manual test steps
+
+Build incrementally and STOP after each milestone.

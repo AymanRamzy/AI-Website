@@ -1,0 +1,1581 @@
+from fastapi import APIRouter, HTTPException, Depends, status, UploadFile, File
+from fastapi.security import HTTPBearer
+from typing import Optional, List
+from datetime import datetime
+from pydantic import BaseModel
+import json
+import os
+
+from supabase_client import get_supabase_client
+from auth import get_current_user, get_admin_user
+from models import (User, UserCreate, UserLogin, UserResponse, UserRole, Team,
+                    TeamCreate, TeamJoin, TeamResponse, TeamMember, AssignRole,
+                    TeamStatus, TeamMemberRole, Competition, CompetitionCreate,
+                    CompetitionResponse, CompetitionStatus, GlobalProfileUpdate,
+                    GlobalProfileResponse)
+
+# =========================================================
+# MODELS
+# =========================================================
+
+
+class CFOApplicationCreate(BaseModel):
+    experience_years: int
+    job_title: str
+    company: str
+
+
+# =========================================================
+# ROUTER SETUP
+# =========================================================
+
+security = HTTPBearer()
+router = APIRouter(prefix="/api/cfo", tags=["CFO Competition"])
+
+# =========================================================
+# AUTH
+# =========================================================
+
+
+@router.post("/auth/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+async def register(user_data: UserCreate):
+    import logging
+    import os
+    logger = logging.getLogger(__name__)
+    supabase = get_supabase_client()
+
+    # Email normalization (MANDATORY)
+    normalized_email = user_data.email.strip().lower()
+    
+    # Get production URL for email redirect
+    # Use frontend URL from environment, fallback to backend URL
+    production_url = os.environ.get("FRONTEND_URL") or os.environ.get("REACT_APP_BACKEND_URL", "")
+    if not production_url:
+        # Fallback: construct from request or use known domain
+        production_url = "https://app-fix-12.preview.emergentagent.com"
+    
+    # Ensure no trailing slash
+    production_url = production_url.rstrip('/')
+    email_redirect_url = f"{production_url}/auth/callback"
+
+    try:
+        # Step 1: Create user in Supabase Auth (email confirmation will be required)
+        # BOARD-APPROVED: Include emailRedirectTo for proper production redirect
+        auth_response = supabase.auth.sign_up({
+            "email": normalized_email,
+            "password": user_data.password,
+            "options": {
+                "data": {"full_name": user_data.full_name},
+                "email_redirect_to": email_redirect_url
+            }
+        })
+
+        if not auth_response or not auth_response.user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Failed to create user account"
+            )
+
+        user_id = auth_response.user.id
+        now = datetime.utcnow().isoformat()
+
+        # Step 2: Check if profile was auto-created by trigger
+        existing_profile = supabase.table("user_profiles")\
+            .select("id")\
+            .eq("id", user_id)\
+            .execute()
+
+        if existing_profile.data:
+            # Profile exists (created by trigger), update it with full details
+            logger.info(f"Updating auto-created profile for user {user_id}")
+            supabase.table("user_profiles").update({
+                "email": normalized_email,
+                "full_name": user_data.full_name,
+                "role": user_data.role.value,
+                "updated_at": now
+            }).eq("id", user_id).execute()
+        else:
+            # No trigger, create profile manually
+            logger.info(f"Creating new profile for user {user_id}")
+            profile_data = {
+                "id": user_id,
+                "email": normalized_email,
+                "full_name": user_data.full_name,
+                "role": user_data.role.value,
+                "created_at": now,
+                "updated_at": now
+            }
+            supabase.table("user_profiles").insert(profile_data).execute()
+
+        logger.info(f"Registration successful for {normalized_email} (email confirmation required)")
+        
+        return UserResponse(
+            id=user_id,
+            email=normalized_email,
+            full_name=user_data.full_name,
+            role=user_data.role,
+            created_at=datetime.fromisoformat(now)
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        error_str = str(e).lower()
+        logger.error(f"Registration error for {normalized_email}: {e}")
+        
+        # 409 for duplicate email
+        if "already registered" in error_str or "user already registered" in error_str:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Email already registered. Please try logging in instead."
+            )
+        # Password requirements
+        if "password" in error_str and ("weak" in error_str or "short" in error_str or "6" in error_str):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password must be at least 6 characters."
+            )
+        # Rate limiting
+        if "security purposes" in error_str or "after" in error_str and "seconds" in error_str:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Too many attempts. Please wait a moment and try again."
+            )
+        # Generic server error
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Registration failed: {str(e)}"
+        )
+
+
+@router.post("/auth/login")
+async def login(user_credentials: UserLogin):
+    import logging
+    logger = logging.getLogger(__name__)
+    supabase = get_supabase_client()
+
+    # Email normalization (MANDATORY)
+    normalized_email = user_credentials.email.strip().lower()
+
+    try:
+        auth_response = supabase.auth.sign_in_with_password({
+            "email": normalized_email,
+            "password": user_credentials.password
+        })
+    except Exception as e:
+        logger.error(f"Login auth error: {e}")
+        raise HTTPException(status_code=401,
+                            detail="Incorrect email or password")
+
+    if not auth_response or not auth_response.session or not auth_response.user:
+        raise HTTPException(status_code=401,
+                            detail="Incorrect email or password")
+
+    user_id = auth_response.user.id
+    user_email = auth_response.user.email or normalized_email
+
+    try:
+        profile_result = supabase.table("user_profiles") \
+            .select("*") \
+            .eq("id", user_id) \
+            .execute()
+        
+        profile_data = profile_result.data[0] if profile_result.data else None
+    except Exception as e:
+        logger.error(f"Profile fetch error: {e}")
+        profile_data = None
+
+    if not profile_data:
+        logger.info(f"Creating missing profile for user {user_id}")
+        now = datetime.utcnow().isoformat()
+        new_profile = {
+            "id": user_id,
+            "email": user_email,
+            "full_name": user_email.split("@")[0],
+            "role": "participant",
+            "created_at": now,
+            "updated_at": now
+        }
+        try:
+            insert_result = supabase.table("user_profiles").insert(new_profile).execute()
+            profile_data = insert_result.data[0] if insert_result.data else new_profile
+        except Exception as e:
+            logger.error(f"Failed to create profile: {e}")
+            raise HTTPException(status_code=500, detail="Failed to create user profile")
+
+    if not profile_data:
+        raise HTTPException(status_code=401, detail="User profile not found")
+
+    return {
+        "access_token": auth_response.session.access_token,
+        "token_type": "bearer",
+        "user": UserResponse(
+            id=profile_data["id"],
+            email=profile_data["email"],
+            full_name=profile_data["full_name"],
+            role=UserRole(profile_data["role"]),
+            created_at=datetime.fromisoformat(profile_data["created_at"]),
+            profile_completed=profile_data.get("profile_completed", False)
+        )
+    }
+
+
+@router.get("/auth/me", response_model=UserResponse)
+async def get_me(current_user: User = Depends(get_current_user)):
+    """Get current user with profile_completed status"""
+    supabase = get_supabase_client()
+    profile = supabase.table("user_profiles").select("profile_completed").eq("id", current_user.id).execute()
+    profile_completed = profile.data[0].get("profile_completed", False) if profile.data else False
+    
+    return UserResponse(
+        id=current_user.id,
+        email=current_user.email,
+        full_name=current_user.full_name,
+        role=current_user.role,
+        created_at=current_user.created_at,
+        profile_completed=profile_completed
+    )
+
+
+# =========================================================
+# GLOBAL PROFILE (Phase 3)
+# =========================================================
+
+@router.get("/profile", response_model=GlobalProfileResponse)
+async def get_profile(current_user: User = Depends(get_current_user)):
+    """Get current user's global profile"""
+    supabase = get_supabase_client()
+    
+    result = supabase.table("user_profiles").select("*").eq("id", current_user.id).execute()
+    
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    
+    profile = result.data[0]
+    
+    # Parse certifications JSON if stored as string
+    certs = profile.get("certifications", [])
+    if isinstance(certs, str):
+        try:
+            certs = json.loads(certs)
+        except json.JSONDecodeError:
+            certs = []
+    
+    return GlobalProfileResponse(
+        id=profile["id"],
+        email=profile["email"],
+        full_name=profile["full_name"],
+        role=UserRole(profile["role"]),
+        profile_completed=profile.get("profile_completed", False),
+        country=profile.get("country"),
+        preferred_language=profile.get("preferred_language"),
+        mobile_number=profile.get("mobile_number"),
+        whatsapp_enabled=profile.get("whatsapp_enabled", False),
+        job_title=profile.get("job_title"),
+        company_name=profile.get("company_name"),
+        industry=profile.get("industry"),
+        years_of_experience=profile.get("years_of_experience"),
+        linkedin_url=profile.get("linkedin_url"),
+        certifications=certs,
+        created_at=datetime.fromisoformat(profile["created_at"])
+    )
+
+
+@router.put("/profile", response_model=GlobalProfileResponse)
+async def update_profile(
+    profile_data: GlobalProfileUpdate,
+    current_user: User = Depends(get_current_user)
+):
+    """Update global profile and mark as completed with validation"""
+    import logging
+    import re
+    logger = logging.getLogger(__name__)
+    supabase = get_supabase_client()
+    
+    # ============================================
+    # BACKEND VALIDATION (Re-validate all inputs)
+    # ============================================
+    errors = {}
+    
+    # Country validation
+    if not profile_data.country or len(profile_data.country.strip()) < 2:
+        errors["country"] = "Country is required"
+    
+    # Mobile number validation: 8-15 digits, numeric only
+    mobile_cleaned = profile_data.mobile_number.replace(" ", "").replace("+", "")
+    if not mobile_cleaned:
+        errors["mobile_number"] = "Mobile number is required"
+    elif not mobile_cleaned.isdigit():
+        errors["mobile_number"] = "Mobile number must contain only digits"
+    elif len(mobile_cleaned) < 8 or len(mobile_cleaned) > 15:
+        errors["mobile_number"] = "Mobile number must be 8-15 digits"
+    
+    # Job title validation: min 2 chars
+    if not profile_data.job_title or len(profile_data.job_title.strip()) < 2:
+        errors["job_title"] = "Job title must be at least 2 characters"
+    
+    # Company name validation: min 2 chars
+    if not profile_data.company_name or len(profile_data.company_name.strip()) < 2:
+        errors["company_name"] = "Company name must be at least 2 characters"
+    
+    # LinkedIn URL validation: must start with linkedin.com
+    if not profile_data.linkedin_url:
+        errors["linkedin_url"] = "LinkedIn profile URL is required"
+    elif not profile_data.linkedin_url.startswith('https://www.linkedin.com/') and not profile_data.linkedin_url.startswith('https://linkedin.com/'):
+        errors["linkedin_url"] = "LinkedIn URL must start with https://www.linkedin.com/"
+    
+    # Certifications validation: check "Other" has text if selected (certifications are optional)
+    if profile_data.certifications:
+        for cert in profile_data.certifications:
+            if cert.name == "Other" and (not cert.other_text or len(cert.other_text.strip()) == 0):
+                errors["other_certification"] = "Please specify your other certification"
+            if cert.other_text and len(cert.other_text) > 100:
+                errors["other_certification"] = "Other certification must be under 100 characters"
+    
+    # If validation errors, return structured error response
+    if errors:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"message": "Validation failed", "errors": errors}
+        )
+    
+    now = datetime.utcnow().isoformat()
+    
+    # Convert certifications to JSON-serializable format
+    certs_list = []
+    if profile_data.certifications:
+        for cert in profile_data.certifications:
+            cert_data = {
+                "name": cert.name,
+                "status": cert.status.value,
+                "year": cert.year
+            }
+            if cert.name == "Other" and cert.other_text:
+                cert_data["other_text"] = cert.other_text.strip()
+            certs_list.append(cert_data)
+    
+    update_data = {
+        "country": profile_data.country.strip(),
+        "preferred_language": profile_data.preferred_language.value,
+        "mobile_number": profile_data.mobile_number.replace(" ", ""),
+        "whatsapp_enabled": profile_data.whatsapp_enabled,
+        "job_title": profile_data.job_title.strip(),
+        "company_name": profile_data.company_name.strip(),
+        "industry": profile_data.industry.value,
+        "years_of_experience": profile_data.years_of_experience.value,
+        "linkedin_url": profile_data.linkedin_url.strip(),
+        "certifications": json.dumps(certs_list),
+        "profile_completed": True,
+        "updated_at": now
+    }
+    
+    try:
+        result = supabase.table("user_profiles").update(update_data).eq("id", current_user.id).execute()
+        
+        if not result.data:
+            raise HTTPException(status_code=500, detail="Failed to update profile")
+        
+        profile = result.data[0]
+        logger.info(f"Profile completed/updated for user {current_user.id}")
+        
+        return GlobalProfileResponse(
+            id=profile["id"],
+            email=profile["email"],
+            full_name=profile["full_name"],
+            role=UserRole(profile["role"]),
+            profile_completed=True,
+            country=profile.get("country"),
+            preferred_language=profile.get("preferred_language"),
+            mobile_number=profile.get("mobile_number"),
+            whatsapp_enabled=profile.get("whatsapp_enabled", False),
+            job_title=profile.get("job_title"),
+            company_name=profile.get("company_name"),
+            industry=profile.get("industry"),
+            years_of_experience=profile.get("years_of_experience"),
+            linkedin_url=profile.get("linkedin_url"),
+            certifications=certs_list,
+            created_at=datetime.fromisoformat(profile["created_at"])
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Profile update error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to update profile: {str(e)}")
+
+
+# =========================================================
+# CFO APPLICATION - Leadership Application System (CFO-FIRST MODEL)
+# =========================================================
+# Phase 1: Individual CFO applications (NO team requirements)
+# Phase 2: Only Qualified CFOs (Top 100) can create teams
+
+from cfo_application_scoring import (
+    CFOFullApplication, calculate_total_score, determine_status,
+    CFOApplicationStep1, CFOApplicationStep2, CFOApplicationStep3, CFOApplicationStep4
+)
+
+
+@router.get("/applications/eligibility")
+async def check_cfo_eligibility(
+    competition_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Check if user is eligible to apply as CFO.
+    CFO-FIRST MODEL: No team requirements - individuals apply first.
+    """
+    import logging
+    import re
+    logger = logging.getLogger(__name__)
+    supabase = get_supabase_client()
+    
+    # UUID validation guard
+    UUID_PATTERN = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', re.IGNORECASE)
+    if not competition_id or not UUID_PATTERN.match(competition_id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid competition ID format"
+        )
+    
+    eligibility = {
+        "eligible": False,
+        "reasons": [],
+        "checks": {
+            "authenticated": True,
+            "applications_open": False,
+            "not_already_applied": True
+        }
+    }
+    
+    # Check competition exists
+    comp_result = supabase.table("competitions").select("*").eq("id", competition_id).execute()
+    if not comp_result.data:
+        eligibility["reasons"].append("Competition not found")
+        return eligibility
+    
+    competition = comp_result.data[0]
+    
+    # Check if applications are open
+    if competition.get("status") in ["applications_open", "open"]:
+        eligibility["checks"]["applications_open"] = True
+    else:
+        eligibility["reasons"].append("CFO applications are not currently open")
+    
+    # Check if already applied
+    existing_app = supabase.table("cfo_applications")\
+        .select("id, status")\
+        .eq("user_id", current_user.id)\
+        .eq("competition_id", competition_id)\
+        .execute()
+    
+    if existing_app.data:
+        eligibility["checks"]["not_already_applied"] = False
+        app_status = existing_app.data[0].get("status", "pending")
+        eligibility["existing_application"] = {
+            "id": existing_app.data[0]["id"],
+            "status": app_status
+        }
+        eligibility["reasons"].append(f"You have already applied (Status: {app_status})")
+    
+    # Determine final eligibility
+    all_checks_passed = all(eligibility["checks"].values())
+    eligibility["eligible"] = all_checks_passed
+    
+    if all_checks_passed:
+        eligibility["reasons"] = ["You are eligible to apply as CFO"]
+    
+    logger.info(f"CFO eligibility check for user {current_user.id}: eligible={eligibility['eligible']}")
+    
+    return eligibility
+
+
+@router.post("/applications/upload-cv")
+async def upload_cv(
+    competition_id: str,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Upload CV for CFO application.
+    Uses SERVICE_ROLE_KEY to upload to private Supabase Storage bucket.
+    Path format: cfo/{competition_id}/{user_id}.{ext}
+    
+    SECURITY: File type validation, size limits, rate limiting
+    """
+    import logging
+    import re
+    from supabase import create_client
+    from datetime import datetime, timedelta
+    logger = logging.getLogger(__name__)
+    
+    # SECURITY FIX: Rate limiting - max 3 uploads per 5 minutes per user
+    # Prevent abuse of storage bandwidth
+    supabase = get_supabase_client()
+    recent_uploads_count = supabase.rpc(
+        'count_recent_uploads',
+        {
+            'p_user_id': current_user.id,
+            'p_minutes': 5
+        }
+    ).execute()
+    
+    # If RPC doesn't exist, skip rate limit check (don't fail)
+    # Otherwise enforce limit
+    try:
+        if recent_uploads_count.data and recent_uploads_count.data > 3:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Too many upload attempts. Please wait 5 minutes before trying again."
+            )
+    except Exception as rpc_err:
+        # RPC might not exist, log and continue
+        logger.warning(f"Rate limit RPC check failed: {rpc_err}")
+    
+    # BOARD-APPROVED FIX: Create dedicated admin client for storage uploads
+    # This ensures service_role key is used, bypassing RLS
+    SUPABASE_URL = os.environ.get("SUPABASE_URL")
+    SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    
+    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+        raise HTTPException(status_code=500, detail="Storage configuration error")
+    
+    # Create fresh admin client - DO NOT reuse global client
+    supabase_admin = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+    
+    # UUID validation
+    UUID_PATTERN = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', re.IGNORECASE)
+    if not competition_id or not UUID_PATTERN.match(competition_id):
+        raise HTTPException(status_code=400, detail="Invalid competition ID format")
+    
+    # Validate file type (strict whitelist)
+    ALLOWED_MIME_TYPES = {
+        'application/pdf': '.pdf',
+        'application/msword': '.doc',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx'
+    }
+    
+    MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
+    
+    # Check content type
+    content_type = file.content_type or ''
+    if content_type not in ALLOWED_MIME_TYPES:
+        # Also check by extension as fallback
+        file_ext_check = os.path.splitext(file.filename or '')[1].lower()
+        if file_ext_check not in ALLOWED_MIME_TYPES.values():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, 
+                detail="Invalid file type. Only PDF, DOC, and DOCX files are accepted."
+            )
+    
+    # Get file extension (validated)
+    file_ext = os.path.splitext(file.filename or 'cv.pdf')[1].lower()
+    if file_ext not in ALLOWED_MIME_TYPES.values():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid file extension. Only .pdf, .doc, and .docx are accepted."
+        )
+    
+    # Read file contents
+    contents = await file.read()
+    
+    # Validate file size (strict check)
+    if len(contents) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="File is empty. Please upload a valid CV."
+        )
+    
+    if len(contents) > MAX_FILE_SIZE:
+        size_mb = len(contents) / (1024 * 1024)
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, 
+            detail=f"File size ({size_mb:.1f}MB) exceeds the 5MB limit."
+        )
+    
+    # Build file path
+    file_path = f"cfo/{competition_id}/{current_user.id}{file_ext}"
+    
+    # Determine content type for upload (use validated MIME type or default to PDF)
+    upload_content_type = content_type if content_type in ALLOWED_MIME_TYPES else 'application/pdf'
+    
+    try:
+        # Try to remove existing file first (ignore errors)
+        try:
+            supabase_admin.storage.from_("cfo-cvs").remove([file_path])
+        except Exception:
+            pass
+        
+        # Upload new file using admin client (service role key bypasses RLS)
+        upload_result = supabase_admin.storage.from_("cfo-cvs").upload(
+            path=file_path,
+            file=contents,
+            file_options={"content-type": upload_content_type, "upsert": "true"}
+        )
+        
+        # SECURITY FIX: Handle upload errors with clear messages (no stack trace exposure)
+        if hasattr(upload_result, 'error') and upload_result.error:
+            logger.error(f"Supabase upload error: {upload_result.error}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+                detail="Storage upload failed. Please try again or contact support."
+            )
+        
+        # SECURITY FIX: Store only the file path reference (no pre-signed URL)
+        # Admin will generate short-lived signed URLs when downloading
+        cv_url = file_path  # Store simple path: cfo/{competition_id}/{user_id}.ext
+        
+        logger.info(f"CV uploaded for user {current_user.id}, competition {competition_id}, path: {file_path}")
+        
+        return {
+            "success": True,
+            "cv_url": cv_url,
+            "cv_uploaded_at": datetime.utcnow().isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"CV upload error: {type(e).__name__}: {e}")
+        # SECURITY FIX: Don't expose internal error details
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+            detail="Upload failed. Please try again or contact support."
+        )
+
+
+@router.post("/applications/submit", status_code=201)
+async def submit_cfo_application(
+    application: CFOFullApplication,
+    current_user: User = Depends(get_current_user)
+):
+    """Submit full CFO leadership application (CFO-FIRST: No team required)
+    
+    SECURITY: Rate limited, duplicate prevention via DB constraint
+    """
+    import logging
+    import re
+    from datetime import datetime, timedelta
+    logger = logging.getLogger(__name__)
+    supabase = get_supabase_client()
+    
+    # SECURITY FIX: Simple rate limiting - check recent submission attempts
+    # Prevent spam submissions (max 1 submission per 60 seconds per user)
+    recent_submissions = supabase.table("cfo_applications")\
+        .select("submitted_at")\
+        .eq("user_id", current_user.id)\
+        .gte("submitted_at", (datetime.utcnow() - timedelta(seconds=60)).isoformat())\
+        .execute()
+    
+    if recent_submissions.data and len(recent_submissions.data) > 0:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Please wait before submitting again. You can only submit once per minute."
+        )
+    
+    # UUID validation guard - prevent unresolved placeholders
+    UUID_PATTERN = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', re.IGNORECASE)
+    if not application.competition_id or not UUID_PATTERN.match(application.competition_id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid competition ID format"
+        )
+    
+    # Validate all required fields before processing
+    validation_errors = []
+    
+    # Step 1 validation
+    if not application.step1.experience_years:
+        validation_errors.append("Experience years is required")
+    if not application.step1.leadership_exposure:
+        validation_errors.append("Leadership exposure is required")
+    if not application.step1.decision_ownership:
+        validation_errors.append("Decision ownership is required")
+    if not application.step1.leadership_willingness:
+        validation_errors.append("Leadership willingness is required")
+    if not application.step1.commitment_level:
+        validation_errors.append("Commitment level is required")
+    
+    # NEW: CFO Readiness & Commitment validation (merged question)
+    if not application.step1.cfo_readiness_commitment:
+        validation_errors.append("CFO readiness and commitment level is required")
+    elif application.step1.cfo_readiness_commitment.value == "not_ready":
+        # Hard gate: reject if not_ready
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="You have indicated you are not ready for CFO responsibilities. This application requires readiness to proceed."
+        )
+    
+    # CV URL validation (required)
+    if not application.cv_url:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Please upload your CV before submitting"
+        )
+    
+    # Step 2 validation
+    if not application.step2.capital_allocation:
+        validation_errors.append("Capital allocation choice is required")
+    if not application.step2.capital_justification or len(application.step2.capital_justification.strip()) < 50:
+        validation_errors.append("Capital justification must be at least 50 characters")
+    if not application.step2.cash_vs_profit or len(application.step2.cash_vs_profit.strip()) < 50:
+        validation_errors.append("Cash vs profit answer must be at least 50 characters")
+    if not application.step2.kpi_prioritization or len(application.step2.kpi_prioritization.strip()) < 50:
+        validation_errors.append("KPI prioritization answer must be at least 50 characters")
+    
+    # Step 3 validation
+    if not application.step3.dscr_choice:
+        validation_errors.append("DSCR choice is required")
+    if not application.step3.dscr_impact or len(application.step3.dscr_impact.strip()) < 30:
+        validation_errors.append("DSCR impact must be at least 30 characters")
+    if not application.step3.cost_priority:
+        validation_errors.append("Cost priority is required")
+    if not application.step3.cfo_mindset:
+        validation_errors.append("CFO mindset is required")
+    if not application.step3.mindset_explanation or len(application.step3.mindset_explanation.strip()) < 30:
+        validation_errors.append("Mindset explanation must be at least 30 characters")
+    
+    # Step 4 validation
+    if not application.step4.ethics_choice:
+        validation_errors.append("Ethics choice is required")
+    if not application.step4.culture_vs_results:
+        validation_errors.append("Culture vs results is required")
+    if not application.step4.why_top_100 or len(application.step4.why_top_100.strip()) < 100:
+        validation_errors.append("Why top 100 must be at least 100 characters")
+    
+    if validation_errors:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Validation failed: {'; '.join(validation_errors)}"
+        )
+    
+    # SECURITY FIX: Atomic duplicate check using database unique constraint
+    # The unique constraint (user_id, competition_id) prevents race conditions
+    # If duplicate exists, database will reject with integrity error
+    
+    # Calculate score
+    score_result = calculate_total_score(application)
+    
+    # Prepare application data for storage - ATOMIC SINGLE INSERT
+    app_data = {
+        "user_id": current_user.id,
+        "competition_id": application.competition_id,
+        # Step 1
+        "experience_years": application.step1.experience_years.value,
+        "leadership_exposure": application.step1.leadership_exposure.value,
+        "decision_ownership": application.step1.decision_ownership.value,
+        "leadership_willingness": application.step1.leadership_willingness.value,
+        "commitment_level": application.step1.commitment_level.value,
+        # NEW: Merged readiness & commitment question
+        "cfo_readiness_commitment": application.step1.cfo_readiness_commitment.value if application.step1.cfo_readiness_commitment else None,
+        # Step 2
+        "capital_allocation": application.step2.capital_allocation.value,
+        "capital_justification": application.step2.capital_justification.strip(),
+        "cash_vs_profit": application.step2.cash_vs_profit.strip(),
+        "kpi_prioritization": application.step2.kpi_prioritization.strip(),
+        # Step 3
+        "dscr_choice": application.step3.dscr_choice.value,
+        "dscr_impact": application.step3.dscr_impact.strip(),
+        "cost_priority": application.step3.cost_priority.value,
+        "cfo_mindset": application.step3.cfo_mindset.value,
+        "mindset_explanation": application.step3.mindset_explanation.strip(),
+        # Step 4
+        "ethics_choice": application.step4.ethics_choice.value,
+        "culture_vs_results": application.step4.culture_vs_results.value,
+        "why_top_100": application.step4.why_top_100.strip(),
+        # CV Upload
+        "cv_url": application.cv_url,
+        "cv_uploaded_at": application.cv_uploaded_at or datetime.utcnow().isoformat(),
+        # Scoring (internal only)
+        "total_score": score_result["final_score"],
+        "raw_score": score_result["total_raw_score"],
+        "leadership_score": score_result["section_scores"]["leadership"],
+        "ethics_score": score_result["section_scores"]["ethics"],
+        "capital_score": score_result["section_scores"]["capital_allocation"],
+        "judgment_score": score_result["section_scores"]["financial_judgment"],
+        "red_flag_count": score_result["red_flag_count"],
+        "red_flags": score_result["red_flags"],
+        "auto_excluded": score_result["auto_exclude"],
+        "exclusion_reason": score_result["exclusion_reason"],
+        # Status - EXPLICIT SUBMITTED STATUS
+        "status": "excluded" if score_result["auto_exclude"] else "submitted",
+        "submitted_at": datetime.utcnow().isoformat()
+    }
+    
+    try:
+        result = supabase.table("cfo_applications").insert(app_data).execute()
+        
+        if not result.data:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+                detail="Failed to save application. Please try again."
+            )
+        
+        logger.info(f"CFO application submitted by user {current_user.id}, score: {score_result['final_score']}, excluded: {score_result['auto_exclude']}")
+        
+        # Return clean success response
+        return {
+            "success": True,
+            "message": "Your CFO leadership application has been submitted successfully.",
+            "application_id": result.data[0]["id"],
+            "status": "under_review"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"CFO application submission error: {type(e).__name__}: {e}")
+        
+        # SECURITY FIX: Handle duplicate submission error gracefully
+        error_msg = str(e).lower()
+        if 'unique' in error_msg or 'duplicate' in error_msg or 'cfo_applications_user_competition_unique' in error_msg:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="You have already submitted an application for this competition."
+            )
+        
+        # SECURITY FIX: Don't expose internal database errors
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+            detail="Failed to submit application. Please try again or contact support."
+        )
+
+
+@router.get("/applications/my-application")
+async def get_my_cfo_application(
+    competition_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """Get current user's CFO application status (without revealing score)"""
+    supabase = get_supabase_client()
+    
+    result = supabase.table("cfo_applications")\
+        .select("id, status, submitted_at")\
+        .eq("user_id", current_user.id)\
+        .eq("competition_id", competition_id)\
+        .execute()
+    
+    if not result.data:
+        return {"has_applied": False}
+    
+    app = result.data[0]
+    
+    # Map internal status to user-friendly status
+    status_map = {
+        "submitted": "Under Review",
+        "pending": "Under Review",
+        "qualified": "Qualified - Top 100",
+        "reserve": "Reserve List",
+        "not_selected": "Not Selected",
+        "excluded": "Not Eligible"
+    }
+    
+    return {
+        "has_applied": True,
+        "application_id": app["id"],
+        "status": status_map.get(app["status"], "Under Review"),
+        "submitted_at": app["submitted_at"]
+    }
+
+
+@router.get("/applications/admin/list")
+async def admin_list_applications(
+    competition_id: str,
+    current_user: User = Depends(get_admin_user)
+):
+    """Admin: List all applications with scores and rankings"""
+    supabase = get_supabase_client()
+    
+    result = supabase.table("cfo_applications")\
+        .select("*, user_profiles(full_name, email)")\
+        .eq("competition_id", competition_id)\
+        .order("total_score", desc=True)\
+        .execute()
+    
+    applications = result.data or []
+    
+    # Add ranking
+    for i, app in enumerate(applications):
+        if not app.get("auto_excluded"):
+            app["rank"] = i + 1
+            app["final_status"] = determine_status(i + 1, app.get("auto_excluded", False))
+        else:
+            app["rank"] = None
+            app["final_status"] = "excluded"
+    
+    return {
+        "total_applications": len(applications),
+        "qualified_count": len([a for a in applications if a["final_status"] == "qualified"]),
+        "reserve_count": len([a for a in applications if a["final_status"] == "reserve"]),
+        "excluded_count": len([a for a in applications if a["final_status"] == "excluded"]),
+        "applications": applications
+    }
+
+
+@router.put("/applications/admin/{application_id}/override")
+async def admin_override_status(
+    application_id: str,
+    new_status: str,
+    reason: str,
+    current_user: User = Depends(get_admin_user)
+):
+    """Admin: Manual override of application status (rare cases)"""
+    import logging
+    logger = logging.getLogger(__name__)
+    supabase = get_supabase_client()
+    
+    valid_statuses = ["qualified", "reserve", "not_selected", "excluded"]
+    if new_status not in valid_statuses:
+        raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {valid_statuses}")
+    
+    result = supabase.table("cfo_applications")\
+        .update({
+            "status": new_status,
+            "admin_override": True,
+            "override_reason": reason,
+            "override_by": current_user.id,
+            "override_at": datetime.utcnow().isoformat()
+        })\
+        .eq("id", application_id)\
+        .execute()
+    
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Application not found")
+    
+    logger.info(f"Admin {current_user.id} overrode application {application_id} to status {new_status}")
+    
+    return {"success": True, "message": f"Application status updated to {new_status}"}
+
+
+# Legacy endpoint - keep for backward compatibility
+@router.post("/applications", status_code=201)
+async def apply_for_cfo_legacy(
+        data: CFOApplicationCreate,
+        current_user: User = Depends(get_current_user),
+):
+    """Legacy CFO application endpoint"""
+    raise HTTPException(
+        status_code=400,
+        detail="Please use the new CFO application form at /applications/submit"
+    )
+
+
+# =========================================================
+# COMPETITIONS
+# =========================================================
+
+
+@router.get("/competitions")
+async def list_competitions():
+    import logging
+    logger = logging.getLogger(__name__)
+    supabase = get_supabase_client()
+    response = supabase.table("competitions").select("*").order("created_at", desc=True).execute()
+    
+    competitions = response.data or []
+    
+    # Map backend status to frontend expected status
+    # Backend uses: 'draft', 'open', 'closed'
+    # Frontend expects: 'draft', 'registration_open', 'in_progress', 'completed'
+    status_map = {
+        'open': 'registration_open',
+        'draft': 'draft',
+        'closed': 'completed'
+    }
+    
+    for comp in competitions:
+        original_status = comp.get('status', 'draft')
+        comp['status'] = status_map.get(original_status, original_status)
+        
+        # Ensure registered_teams field exists (frontend expects it)
+        if 'registered_teams' not in comp:
+            # Count actual teams for this competition
+            teams_count = supabase.table("teams").select("id", count="exact").eq("competition_id", comp["id"]).execute()
+            comp['registered_teams'] = teams_count.count if hasattr(teams_count, 'count') else 0
+    
+    logger.info(f"Returning {len(competitions)} competitions")
+    return competitions
+
+
+@router.get("/competitions/{competition_id}")
+async def get_competition(competition_id: str):
+    supabase = get_supabase_client()
+    response = supabase.table("competitions").select("*").eq("id", competition_id).execute()
+    
+    if not response.data:
+        raise HTTPException(status_code=404, detail="Competition not found")
+    
+    return response.data[0]
+
+
+@router.post("/competitions")
+async def create_competition(competition_data: CompetitionCreate,
+                             admin_user: User = Depends(get_admin_user)):
+    supabase = get_supabase_client()
+
+    competition_dict = {
+        "title": competition_data.title,
+        "description": competition_data.description or "",
+        "registration_start": competition_data.registration_start,
+        "registration_end": competition_data.registration_end,
+        "competition_start": competition_data.competition_start,
+        "competition_end": competition_data.competition_end,
+        "max_teams": competition_data.max_teams,
+        "status": competition_data.status if competition_data.status in ["draft", "open", "closed"] else "draft"
+    }
+
+    response = supabase.table("competitions").insert(competition_dict).execute()
+
+    if not response.data:
+        raise HTTPException(status_code=500, detail="Failed to create competition")
+
+    return response.data[0]
+
+
+# =========================================================
+# COMPETITION REGISTRATION
+# =========================================================
+
+
+@router.get("/competitions/{competition_id}/is-registered")
+async def check_registration(
+    competition_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    import logging
+    logger = logging.getLogger(__name__)
+    supabase = get_supabase_client()
+    
+    response = supabase.table("competitions").select("id").eq("id", competition_id).execute()
+    if not response.data:
+        raise HTTPException(status_code=404, detail="Competition not found")
+    
+    registration = supabase.table("competition_registrations") \
+        .select("id") \
+        .eq("competition_id", competition_id) \
+        .eq("user_id", current_user.id) \
+        .execute()
+    
+    is_registered = bool(registration.data)
+    logger.info(f"Registration check - user_id: {current_user.id}, competition_id: {competition_id}, is_registered: {is_registered}, registrations_found: {len(registration.data or [])}")
+    
+    return {"is_registered": is_registered}
+
+
+@router.post("/competitions/{competition_id}/register", status_code=201)
+async def register_for_competition(
+    competition_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    import logging
+    logger = logging.getLogger(__name__)
+    supabase = get_supabase_client()
+    
+    competition = supabase.table("competitions").select("*").eq("id", competition_id).execute()
+    if not competition.data:
+        raise HTTPException(status_code=404, detail="Competition not found")
+    
+    comp = competition.data[0]
+    
+    if comp.get("status") != "open":
+        raise HTTPException(
+            status_code=403, 
+            detail="Registration is not open for this competition"
+        )
+    
+    existing = supabase.table("competition_registrations") \
+        .select("id") \
+        .eq("competition_id", competition_id) \
+        .eq("user_id", current_user.id) \
+        .execute()
+    
+    if existing.data:
+        raise HTTPException(
+            status_code=409, 
+            detail="You are already registered for this competition"
+        )
+    
+    registration_data = {
+        "competition_id": competition_id,
+        "user_id": current_user.id
+    }
+    
+    try:
+        result = supabase.table("competition_registrations").insert(registration_data).execute()
+        
+        if not result.data:
+            raise HTTPException(status_code=500, detail="Failed to register for competition")
+        
+        logger.info(f"User {current_user.id} registered for competition {competition_id}")
+        
+        return {"success": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Registration error: {e}")
+        raise HTTPException(status_code=500, detail=f"Registration failed: {str(e)}")
+
+
+
+# =========================================================
+# TEAMS (CFO-FIRST: Only Qualified CFOs can create teams)
+# =========================================================
+
+
+@router.post("/teams")
+async def create_team(
+    team_data: TeamCreate,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Create a new team for a competition.
+    CFO-FIRST MODEL: Only users with qualified CFO status can create teams.
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    supabase = get_supabase_client()
+    
+    # CFO-FIRST: Check if user is a QUALIFIED CFO for this competition
+    cfo_app = supabase.table("cfo_applications") \
+        .select("id, status") \
+        .eq("competition_id", team_data.competition_id) \
+        .eq("user_id", current_user.id) \
+        .execute()
+    
+    if not cfo_app.data:
+        raise HTTPException(
+            status_code=403,
+            detail="You must apply as CFO first before creating a team"
+        )
+    
+    app_status = cfo_app.data[0].get("status")
+    if app_status != "qualified":
+        status_messages = {
+            "pending": "Your CFO application is still under review",
+            "reserve": "You are on the reserve list (Top 101-150). Only Top 100 CFOs can create teams",
+            "not_selected": "Your CFO application was not selected",
+            "excluded": "Your CFO application was not eligible"
+        }
+        raise HTTPException(
+            status_code=403,
+            detail=status_messages.get(app_status, "Only qualified CFOs (Top 100) can create teams")
+        )
+    
+    # Check if user is already in a team for this competition
+    existing_membership = supabase.table("team_members") \
+        .select("team_id, teams(competition_id)") \
+        .eq("user_id", current_user.id) \
+        .execute()
+    
+    for membership in existing_membership.data or []:
+        team_info = membership.get("teams")
+        if team_info and team_info.get("competition_id") == team_data.competition_id:
+            raise HTTPException(
+                status_code=400,
+                detail="You are already in a team for this competition"
+            )
+    
+    # Create team - database trigger automatically adds leader to team_members
+    try:
+        # Step 1: Insert into teams table (trigger creates team_member with team_role='leader')
+        team_result = supabase.table("teams").insert({
+            "team_name": team_data.team_name,
+            "competition_id": team_data.competition_id,
+            "leader_id": current_user.id
+        }).execute()
+        
+        if not team_result.data:
+            raise HTTPException(status_code=500, detail="Failed to create team")
+        
+        team = team_result.data[0]
+        team_id = team["id"]
+        
+        # Step 2: Update the auto-created team_member with user_name
+        supabase.table("team_members").update({
+            "user_name": current_user.full_name
+        }).eq("team_id", team_id).eq("user_id", current_user.id).execute()
+        
+        logger.info(f"Team created by qualified CFO {current_user.id}")
+        
+        return team
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Team creation error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to create team: {str(e)}")
+
+
+@router.get("/teams/eligibility")
+async def check_team_creation_eligibility(
+    competition_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Check if user can create a team (CFO-FIRST model).
+    Only qualified CFOs (Top 100) can create teams.
+    """
+    supabase = get_supabase_client()
+    
+    eligibility = {
+        "can_create_team": False,
+        "reason": "",
+        "cfo_status": None,
+        "has_team": False
+    }
+    
+    # Check CFO application status
+    cfo_app = supabase.table("cfo_applications") \
+        .select("id, status") \
+        .eq("competition_id", competition_id) \
+        .eq("user_id", current_user.id) \
+        .execute()
+    
+    if not cfo_app.data:
+        eligibility["reason"] = "You must apply as CFO first"
+        return eligibility
+    
+    app_status = cfo_app.data[0].get("status")
+    eligibility["cfo_status"] = app_status
+    
+    if app_status != "qualified":
+        status_reasons = {
+            "pending": "Your CFO application is under review",
+            "reserve": "You are on the reserve list (101-150)",
+            "not_selected": "Your application was not selected",
+            "excluded": "Your application was not eligible"
+        }
+        eligibility["reason"] = status_reasons.get(app_status, "Only qualified CFOs can create teams")
+        return eligibility
+    
+    # Check if already in a team
+    existing = supabase.table("team_members") \
+        .select("team_id, teams(competition_id)") \
+        .eq("user_id", current_user.id) \
+        .execute()
+    
+    for membership in existing.data or []:
+        team_info = membership.get("teams")
+        if team_info and team_info.get("competition_id") == competition_id:
+            eligibility["has_team"] = True
+            eligibility["reason"] = "You already have a team for this competition"
+            return eligibility
+    
+    eligibility["can_create_team"] = True
+    eligibility["reason"] = "You are a qualified CFO - you can create a team!"
+    
+    return eligibility
+
+
+@router.get("/teams/my-team")
+async def get_my_team(current_user: User = Depends(get_current_user)):
+    """Get the current user's team."""
+    supabase = get_supabase_client()
+    
+    # Find team membership for current user
+    membership = supabase.table("team_members") \
+        .select("team_id") \
+        .eq("user_id", current_user.id) \
+        .execute()
+    
+    if not membership.data:
+        raise HTTPException(status_code=404, detail="You are not in any team")
+    
+    team_id = membership.data[0]["team_id"]
+    
+    # Get team details
+    team_result = supabase.table("teams") \
+        .select("*") \
+        .eq("id", team_id) \
+        .execute()
+    
+    if not team_result.data:
+        raise HTTPException(status_code=404, detail="Team not found")
+    
+    team = team_result.data[0]
+    
+    # Get team members
+    members_result = supabase.table("team_members") \
+        .select("*") \
+        .eq("team_id", team_id) \
+        .execute()
+    
+    team["members"] = members_result.data or []
+    team["max_members"] = 5  # Constant max team size for frontend
+    # Compute status from member count (no status column in DB)
+    team["status"] = "complete" if len(team["members"]) >= 5 else "forming"
+    
+    return team
+
+
+@router.get("/teams/competition/{competition_id}")
+async def get_teams_by_competition(
+    competition_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """Get all teams for a competition."""
+    supabase = get_supabase_client()
+    
+    # Get all teams for this competition
+    teams_result = supabase.table("teams") \
+        .select("*") \
+        .eq("competition_id", competition_id) \
+        .execute()
+    
+    teams = teams_result.data or []
+    
+    # Get members for each team and add computed fields
+    for team in teams:
+        members_result = supabase.table("team_members") \
+            .select("*") \
+            .eq("team_id", team["id"]) \
+            .execute()
+        team["members"] = members_result.data or []
+        team["max_members"] = 5  # Constant max team size for frontend
+        # Compute status from member count (no status column in DB)
+        team["status"] = "complete" if len(team["members"]) >= 5 else "forming"
+    
+    return teams
+
+
+@router.post("/teams/join")
+async def join_team(
+    join_data: TeamJoin,
+    current_user: User = Depends(get_current_user)
+):
+    """Join an existing team."""
+    import logging
+    logger = logging.getLogger(__name__)
+    supabase = get_supabase_client()
+    
+    # Get team details
+    team_result = supabase.table("teams") \
+        .select("*") \
+        .eq("id", join_data.team_id) \
+        .execute()
+    
+    if not team_result.data:
+        raise HTTPException(status_code=404, detail="Team not found")
+    
+    team = team_result.data[0]
+    
+    # Check if user is registered for the competition
+    registration = supabase.table("competition_registrations") \
+        .select("id") \
+        .eq("competition_id", team["competition_id"]) \
+        .eq("user_id", current_user.id) \
+        .execute()
+    
+    if not registration.data:
+        raise HTTPException(
+            status_code=403,
+            detail="You must be registered for this competition to join a team"
+        )
+    
+    # Check if user is already in a team for this competition
+    existing_membership = supabase.table("team_members") \
+        .select("team_id, teams(competition_id)") \
+        .eq("user_id", current_user.id) \
+        .execute()
+    
+    for membership in existing_membership.data or []:
+        team_info = membership.get("teams")
+        if team_info and team_info.get("competition_id") == team["competition_id"]:
+            raise HTTPException(
+                status_code=400,
+                detail="You are already in a team for this competition"
+            )
+    
+    # Get current member count
+    MAX_TEAM_SIZE = 5  # Constant max team size
+    members_result = supabase.table("team_members") \
+        .select("id") \
+        .eq("team_id", join_data.team_id) \
+        .execute()
+    
+    current_members = len(members_result.data or [])
+    
+    if current_members >= MAX_TEAM_SIZE:
+        raise HTTPException(status_code=400, detail="Team is full")
+    
+    # Add user to team
+    now = datetime.utcnow().isoformat()
+    member_dict = {
+        "team_id": join_data.team_id,
+        "user_id": current_user.id,
+        "user_name": current_user.full_name,
+        "joined_at": now
+    }
+    
+    try:
+        supabase.table("team_members").insert(member_dict).execute()
+        
+        # Team is implicitly complete when member count reaches MAX_TEAM_SIZE
+        # No status update needed - frontend calculates from member count
+        
+        logger.info(f"User {current_user.id} joined team {join_data.team_id}")
+        
+        return {"success": True, "message": "Successfully joined team"}
+        
+    except Exception as e:
+        logger.error(f"Join team error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to join team: {str(e)}")
+
+
+@router.get("/teams/{team_id}")
+async def get_team(
+    team_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """Get team details by ID."""
+    supabase = get_supabase_client()
+    
+    # Get team
+    team_result = supabase.table("teams") \
+        .select("*") \
+        .eq("id", team_id) \
+        .execute()
+    
+    if not team_result.data:
+        raise HTTPException(status_code=404, detail="Team not found")
+    
+    team = team_result.data[0]
+    
+    # Get team members
+    members_result = supabase.table("team_members") \
+        .select("*") \
+        .eq("team_id", team_id) \
+        .execute()
+    
+    team["members"] = members_result.data or []
+    team["max_members"] = 5  # Constant max team size for frontend
+    # Compute status from member count (no status column in DB)
+    team["status"] = "complete" if len(team["members"]) >= 5 else "forming"
+    
+    return team
+
+
+@router.delete("/teams/{team_id}/leave")
+async def leave_team(
+    team_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """Leave a team."""
+    import logging
+    logger = logging.getLogger(__name__)
+    supabase = get_supabase_client()
+    
+    # Get team
+    team_result = supabase.table("teams") \
+        .select("*") \
+        .eq("id", team_id) \
+        .execute()
+    
+    if not team_result.data:
+        raise HTTPException(status_code=404, detail="Team not found")
+    
+    team = team_result.data[0]
+    
+    # Check if user is the leader
+    if team["leader_id"] == current_user.id:
+        raise HTTPException(
+            status_code=400,
+            detail="Team leaders cannot leave. Transfer leadership or delete the team."
+        )
+    
+    # Check if user is a member
+    membership = supabase.table("team_members") \
+        .select("id") \
+        .eq("team_id", team_id) \
+        .eq("user_id", current_user.id) \
+        .execute()
+    
+    if not membership.data:
+        raise HTTPException(status_code=400, detail="You are not a member of this team")
+    
+    # Remove user from team
+    try:
+        supabase.table("team_members") \
+            .delete() \
+            .eq("team_id", team_id) \
+            .eq("user_id", current_user.id) \
+            .execute()
+        
+        # No status update needed - team completeness is calculated from member count
+        
+        logger.info(f"User {current_user.id} left team {team_id}")
+        
+        return {"success": True, "message": "Successfully left team"}
+        
+    except Exception as e:
+        logger.error(f"Leave team error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to leave team: {str(e)}")
+
+
+@router.put("/teams/{team_id}/assign-role")
+async def assign_role(
+    team_id: str,
+    role_data: AssignRole,
+    current_user: User = Depends(get_current_user)
+):
+    """Assign a role to a team member (leader only)."""
+    import logging
+    logger = logging.getLogger(__name__)
+    supabase = get_supabase_client()
+    
+    # Get team
+    team_result = supabase.table("teams") \
+        .select("*") \
+        .eq("id", team_id) \
+        .execute()
+    
+    if not team_result.data:
+        raise HTTPException(status_code=404, detail="Team not found")
+    
+    team = team_result.data[0]
+    
+    # Check if current user is the leader
+    if team["leader_id"] != current_user.id:
+        raise HTTPException(
+            status_code=403,
+            detail="Only the team leader can assign roles"
+        )
+    
+    # Check if target user is a team member
+    membership = supabase.table("team_members") \
+        .select("id") \
+        .eq("team_id", team_id) \
+        .eq("user_id", role_data.user_id) \
+        .execute()
+    
+    if not membership.data:
+        raise HTTPException(status_code=400, detail="User is not a member of this team")
+    
+    # Check if role is already assigned to another member
+    existing_role = supabase.table("team_members") \
+        .select("user_id") \
+        .eq("team_id", team_id) \
+        .eq("team_role", role_data.team_role.value) \
+        .execute()
+    
+    if existing_role.data:
+        for member in existing_role.data:
+            if member["user_id"] != role_data.user_id:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Role '{role_data.team_role.value}' is already assigned to another member"
+                )
+    
+    # Update the role
+    try:
+        supabase.table("team_members").update({
+            "team_role": role_data.team_role.value
+        }).eq("team_id", team_id).eq("user_id", role_data.user_id).execute()
+        
+        logger.info(f"Role {role_data.team_role.value} assigned to user {role_data.user_id} in team {team_id}")
+        
+        return {"success": True, "message": "Role assigned successfully"}
+        
+    except Exception as e:
+        logger.error(f"Assign role error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to assign role: {str(e)}")

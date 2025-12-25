@@ -1,0 +1,100 @@
+You are fixing a production FastAPI + React (CRACO) + Supabase app.
+
+PROBLEM SUMMARY
+---------------
+1) Competitions already exist in Supabase (table: public.competitions)
+2) Admin dashboard:
+   - Cannot see existing competitions
+   - Cannot create new competitions from UI (500 error)
+3) SQL inserts work manually, but UI/API does not
+
+DATABASE FACTS
+--------------
+Table: public.competitions
+Columns (confirmed):
+- id (uuid, pk, default uuid_generate_v4())
+- title (text, not null)
+- description (text)
+- registration_start (date)
+- registration_end (date)
+- competition_start (date)
+- competition_end (date)
+- max_teams (int4)
+- status (text, CHECK: 'draft' | 'open' | 'closed')
+- created_at (timestamptz, default now())
+
+IMPORTANT:
+- Status CANNOT be 'published' (causes constraint error)
+- Valid values ONLY: 'draft', 'open', 'closed'
+
+BACKEND ISSUES TO FIX
+--------------------
+1) Fix POST /api/admin/competitions
+   - Ensure payload matches DB column names EXACTLY
+   - Ensure status defaults to 'draft' if not provided
+   - Ensure date fields are converted to ISO date (YYYY-MM-DD)
+   - Catch Supabase errors and return readable messages
+
+2) Fix GET /api/admin/competitions
+   - Ensure it selects from public.competitions
+   - Ensure RLS is bypassed using service_role key
+   - Ensure data is returned as an array (not null)
+
+3) Log Supabase errors explicitly (print error.message, error.details)
+
+FRONTEND ISSUES TO FIX
+---------------------
+1) Admin Competitions page:
+   - Fix fetchCompetitions() to read response correctly
+   - Ensure it expects:
+     {
+       id,
+       title,
+       description,
+       registration_start,
+       registration_end,
+       competition_start,
+       competition_end,
+       max_teams,
+       status
+     }
+
+2) Fix Create Competition form:
+   - Ensure payload keys match backend exactly
+   - Convert DateTimePicker values to YYYY-MM-DD
+   - Do NOT send 'published' as status
+   - After successful create → refetch competitions
+
+3) Add error toast showing backend error message instead of silent failure
+
+VALID CREATE PAYLOAD EXAMPLE
+----------------------------
+{
+  "title": "ModEX CFO Challenge",
+  "description": "Finance competition",
+  "registration_start": "2025-01-01",
+  "registration_end": "2025-01-31",
+  "competition_start": "2025-02-10",
+  "competition_end": "2025-02-20",
+  "max_teams": 8,
+  "status": "draft"
+}
+
+SUCCESS CRITERIA
+----------------
+- Existing competitions appear in Admin → Competitions
+- Creating a competition from UI works
+- No 500 errors
+- No CORS errors
+- Status constraint respected
+- Admin dashboard updates live after creation
+
+DO NOT:
+- Change database schema
+- Change status constraint
+- Add new columns
+
+DO:
+- Fix alignment between frontend, backend, and Supabase
+- Show exact code changes made
+- Test the flow end-to-end

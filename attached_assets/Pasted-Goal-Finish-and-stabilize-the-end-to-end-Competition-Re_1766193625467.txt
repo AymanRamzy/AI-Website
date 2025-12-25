@@ -1,0 +1,152 @@
+Goal:
+Finish and stabilize the end-to-end Competition Registration lifecycle (view → register → apply → success) with no “Not Found”, no silent failures, no partial logic, using the existing Supabase schema and minimal changes.
+
+Context
+
+Stack: React (CRA + CRACO) + FastAPI + Supabase
+
+Competitions already exist and display correctly
+
+URL /competitions/:id loads competition details
+
+Button “Register for Competition” currently leads to Not Found
+
+Competition statuses are constrained to: draft | open | closed
+
+Registration dates exist: registration_start, registration_end
+
+This task is participant flow only, not admin creation
+
+Problems Identified
+
+Frontend routes are incomplete (/competitions/:id/register missing or broken)
+
+Backend registration logic is incomplete or not connected
+
+Eligibility rules are not enforced consistently
+
+UI allows navigation to invalid states (open but cannot apply)
+
+Errors are shown as generic “Not Found” instead of meaningful messages
+
+REQUIRED FIXES (DO ALL — NO PARTIAL IMPLEMENTATION)
+1️⃣ Frontend Routing (Mandatory)
+
+Add a React Router route:
+
+/competitions/:id/register
+
+
+Update Register for Competition button to navigate to this route
+
+Do NOT use hard reloads or window.location
+
+2️⃣ Single Source of Truth for Eligibility
+
+Implement eligibility logic (backend preferred, frontend mirrors result):
+
+A user can register ONLY IF:
+
+competition.status === "open"
+
+current date is between registration_start and registration_end
+
+user is authenticated
+
+user has not already applied
+
+Return explicit reasons if blocked.
+
+3️⃣ Backend API (Minimal & Explicit)
+
+Ensure these endpoints exist and work:
+
+GET /api/competitions/{id}
+
+POST /api/competitions/{id}/register
+
+POST /register must:
+
+validate eligibility
+
+insert into cfo_applications
+
+prevent duplicates
+
+return proper status codes:
+
+201 success
+
+403 not eligible
+
+409 already applied
+
+404 competition not found
+
+❌ No generic 500 errors
+
+4️⃣ Frontend Registration Page
+
+Create /competitions/:id/register page that:
+
+Shows competition summary
+
+Confirms eligibility
+
+Submits registration
+
+Shows success message
+
+Redirects to dashboard or applications page
+
+Keep UI simple — no new features.
+
+5️⃣ Fix “Not Found” Globally
+
+Add a single global 404 page
+
+Invalid competition IDs must show:
+
+“Competition not found”
+
+Valid competitions must NEVER show “Not Found”
+
+Cost & Scope Constraints (IMPORTANT)
+
+❌ No new tables
+
+❌ No schema changes
+
+❌ No auth refactor
+
+❌ No new libraries
+
+✅ Reuse existing Supabase tables
+
+✅ Small, targeted code changes only
+
+✅ Backend validation > frontend hacks
+
+Acceptance Criteria (ALL MUST PASS)
+
+Clicking Register for Competition never results in Not Found
+
+Eligible users can successfully apply
+
+Ineligible users see clear messages
+
+No console errors
+
+No 404/500 during normal flow
+
+Works on Replit deployment URL
+
+Output Required
+
+After completion, clearly report:
+
+Routes added/updated
+
+Backend endpoints touched
+
+How the full participant flow works end-to-end

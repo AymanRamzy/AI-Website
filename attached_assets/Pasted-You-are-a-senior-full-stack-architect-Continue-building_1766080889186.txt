@@ -1,0 +1,173 @@
+You are a senior full-stack architect.
+
+Continue building the existing ModEX project (already migrated from GitHub to Replit).
+DO NOT rebuild from scratch. Fix, complete, and wire the backend correctly.
+
+STACK (MANDATORY):
+- Frontend: React + Vite + Tailwind CSS
+- Backend: FastAPI (Python)
+- Database: MongoDB
+- Auth: JWT + role-based access
+- API style: REST
+- File uploads: local storage (future S3-ready)
+
+GOAL:
+Deliver a fully functional ModEX platform including:
+1) Marketing website
+2) CFO Competition Management System
+3) CFO Application, Qualification, Ranking & Selection System
+4) Full Admin Control Panel
+
+--------------------------------------------------
+SYSTEM ROLES
+--------------------------------------------------
+system_role:
+- ADMIN
+- JUDGE
+- USER
+
+team_role:
+- Leader
+- Analyst
+- Designer
+- Strategist
+- Communicator
+
+--------------------------------------------------
+CFO APPLICATION & QUALIFICATION (CRITICAL)
+--------------------------------------------------
+Before joining any CFO Competition, users must apply and be approved.
+
+CFO APPLICATION FORM:
+- Years of experience
+- Current role
+- Industry
+- Certifications (FMVA, CMA, CFA, CPA, etc.)
+- Leadership & decision-making questions (scored)
+- Availability & commitment questions
+- CV upload (PDF / DOCX)
+
+DATA MODEL:
+- cfo_applications:
+  {
+    id,
+    user_id,
+    competition_id,
+    cv_file_path,
+    questionnaire_answers,
+    auto_score,
+    manual_score,
+    final_score,
+    status:
+      PENDING |
+      SHORTLISTED |
+      APPROVED |
+      REJECTED |
+      WAITLISTED,
+    created_at
+  }
+
+AUTO-RANKING LOGIC:
+- Each question has configurable weight
+- System calculates auto_score
+- Rank applicants automatically
+- Admin can adjust weights at any time
+- Rankings update dynamically
+
+RULES:
+- Only APPROVED CFOs can create or join teams
+- Admin can override any decision
+- All actions logged (audit trail)
+
+--------------------------------------------------
+ADMIN DASHBOARD (FULL CONTROL)
+--------------------------------------------------
+Admin must be able to:
+- Manage users & roles
+- Create / edit competitions
+- Manage CFO application questions & weights
+- View all CFO applications
+- View CVs inline
+- See auto ranking
+- Adjust scores manually
+- Approve / reject / waitlist CFOs
+- Select top N CFOs automatically
+- Export results (CSV / Excel)
+- Assign judges
+- Manage tasks & deadlines
+- Approve submissions
+- Access all platform data
+
+--------------------------------------------------
+COMPETITION SYSTEM
+--------------------------------------------------
+GLOBAL RULES:
+- Monthly / bi-monthly competitions
+- Max 40 participants
+- Max 8 teams
+- Max 5 members per team
+- User can join only ONE team per competition
+
+FEATURES:
+Participant Dashboard:
+- View competitions
+- View application status
+- View team & role
+- View submissions
+
+Team Dashboard:
+- Create team
+- Join via Team ID
+- Assign roles (Leader only)
+- Upload submissions (PDF / Excel / Video)
+
+Tasks Module:
+- Admin creates tasks with deadlines
+- Teams submit per task
+
+Judge Scoring:
+- Judges score submissions
+- Criteria-based scoring
+- Auto total score
+- Lock after scoring
+
+Leaderboard:
+- Polling-based live leaderboard
+- Ranking + tie-breaking logic
+
+--------------------------------------------------
+BUILD STRATEGY (STRICT)
+--------------------------------------------------
+Fix and build incrementally in this order:
+1) Backend foundation & DB connection
+2) Authentication (register / login / me)
+3) CFO application & ranking system
+4) Participant dashboard
+5) Team dashboard
+6) Tasks & submissions
+7) Judge scoring
+8) Leaderboard
+9) Admin control panel
+
+STOP after each step and confirm completion.
+
+--------------------------------------------------
+QUALITY REQUIREMENTS
+--------------------------------------------------
+- Single MongoDB connection
+- Dependency injection
+- Backend enforces all rules
+- Frontend is client only
+- Clear comments
+- Clean architecture
+- Ready for payments & LMS later
+
+--------------------------------------------------
+DELIVERABLES
+--------------------------------------------------
+- Fully working backend + frontend
+- Seed admin user
+- Sample competition
+- Sample CFO applications
+- README with run steps
+- Manual test checklist

@@ -1,0 +1,11 @@
+{
+  "name": "modex-platform",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "cd frontend && npm install --legacy-peer-deps && npm run dev -- --host",
+    "build": "cd frontend && npm install --legacy-peer-deps && npm run build",
+    "preview": "cd frontend && npm run preview -- --host",
+    "start": "cd frontend && npm run dev -- --host"
+  }
+}

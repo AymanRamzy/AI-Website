@@ -1,0 +1,138 @@
+🧱 Tasks (Do All — No Partial Completion)
+1️⃣ Backend — Competition Registration API
+
+Create or fix endpoint:
+
+POST /api/competitions/:competition_id/register
+
+
+Logic must:
+
+Require authenticated user
+
+Validate competition exists
+
+Validate competition.status === 'open'
+
+Prevent duplicate registration
+
+Insert registration row
+
+Return clear JSON response
+
+Return example:
+
+{ "success": true }
+
+
+Failure cases must return meaningful errors (not generic 500s).
+
+2️⃣ Database — Minimal Registration Table
+
+If missing, create a single simple table:
+
+competition_registrations (
+  id uuid primary key default gen_random_uuid(),
+  competition_id uuid references competitions(id),
+  user_id uuid references auth.users(id),
+  created_at timestamptz default now(),
+  unique (competition_id, user_id)
+)
+
+
+No extra columns unless required.
+
+3️⃣ Backend — Service Role Usage
+
+Use SUPABASE_SERVICE_ROLE_KEY ONLY in backend
+
+Never expose service role to frontend
+
+Enforce RLS properly (service role bypass OK)
+
+4️⃣ Frontend — Registration Flow
+
+Update frontend logic so that:
+
+Button calls correct endpoint
+
+Loading state is shown
+
+On success → show confirmation message
+
+On failure → show backend error message
+
+Button disables if already registered
+
+Button disables if competition is not open
+
+5️⃣ Frontend — Route Integrity
+
+Ensure route exists and works:
+
+/competitions/:competitionId/register
+
+
+OR handle registration inline on details page (preferred).
+
+No navigation to missing pages.
+
+6️⃣ UI State Rules
+
+Competition page must follow this logic:
+
+Condition	Button State
+status !== open	Disabled
+user not logged in	Redirect to login
+already registered	Disabled + label
+success	Show confirmation
+failure	Show error
+7️⃣ Error Handling (Mandatory)
+
+Replace all generic failures with:
+
+Specific backend messages
+
+Frontend error banners
+
+No silent failures
+
+No infinite retries
+
+8️⃣ Final Verification Checklist (Must Pass)
+
+✅ Register button works
+
+✅ One registration per user per competition
+
+✅ Page reload shows correct state
+
+✅ No console errors
+
+✅ No 500 responses
+
+✅ No broken routes
+
+✅ No extra features added
+
+🚫 Explicit Constraints
+
+Do NOT redesign UI
+
+Do NOT add team logic unless required
+
+Do NOT add admin features
+
+Do NOT refactor unrelated files
+
+Keep solution minimal & production-safe
+
+📦 Deliverables
+
+Working backend endpoint
+
+Correct DB schema
+
+Stable frontend behavior
+
+Short summary of what was fixed
