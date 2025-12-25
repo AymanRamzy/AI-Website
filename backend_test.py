@@ -453,6 +453,13 @@ class CFOAPITester:
             results["team_management"] = False
             self.log("⚠️ Skipping team management tests due to auth failures", "WARNING")
         
+        # Test 6: Team Submission APIs (if team management works)
+        if results["team_management"]:
+            results["team_submissions"] = self.test_team_submission_apis()
+        else:
+            results["team_submissions"] = False
+            self.log("⚠️ Skipping team submission tests due to team management failures", "WARNING")
+        
         # Summary
         self.log("=== Test Results Summary ===")
         passed = sum(1 for result in results.values() if result)
