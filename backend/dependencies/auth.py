@@ -97,6 +97,8 @@ async def get_current_user(
     - Fetches role from DB on EVERY request
     - Uses anon client (respects RLS)
     
+    IMPROVEMENT: Explicit 401 handling for expired sessions
+    
     Returns: Validated User object with DB-sourced role
     """
     supabase = get_anon_client()
@@ -107,9 +109,14 @@ async def get_current_user(
         
         if not user_response or not user_response.user:
             logger.warning("Invalid or expired token")
+            # IMPROVEMENT: Explicit 401 with clear error code
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid or expired session. Please log in again."
+                detail={
+                    "code": "UNAUTHORIZED",
+                    "message": "Invalid or expired session. Please log in again."
+                },
+                headers={"WWW-Authenticate": "Bearer"}
             )
         
         user_id = user_response.user.id
@@ -124,9 +131,13 @@ async def get_current_user(
         
         if not profile_response.data or len(profile_response.data) == 0:
             logger.error(f"User profile not found for authenticated user: {user_id}")
+            # IMPROVEMENT: Explicit 401 (session valid but profile missing)
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="User profile not found. Please contact support."
+                detail={
+                    "code": "PROFILE_NOT_FOUND",
+                    "message": "User profile not found. Please contact support."
+                }
             )
         
         profile = profile_response.data[0]
@@ -148,9 +159,13 @@ async def get_current_user(
         raise
     except Exception as e:
         logger.error(f"Authentication error: {type(e).__name__}: {e}")
+        # IMPROVEMENT: Always 401 for auth failures, no internal details
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication failed. Please log in again."
+            detail={
+                "code": "AUTH_ERROR",
+                "message": "Authentication failed. Please log in again."
+            }
         )
 
 
