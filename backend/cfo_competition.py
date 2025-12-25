@@ -1638,8 +1638,135 @@ async def assign_role(
 
 
 # =========================================================
-# TEAM SUBMISSIONS
+# TEAM CASE FILES & SUBMISSIONS
 # =========================================================
+
+
+@router.get("/teams/{team_id}/case-files")
+async def get_team_case_files(
+    team_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get case files for a team's competition.
+    Enforces timer: returns empty if before case_release_at.
+    Returns signed URLs with 15 min expiry.
+    """
+    import logging
+    from supabase import create_client
+    
+    logger = logging.getLogger(__name__)
+    supabase = get_supabase_client()
+    
+    # Verify user is a team member
+    membership = supabase.table("team_members") \
+        .select("id") \
+        .eq("team_id", team_id) \
+        .eq("user_id", current_user.id) \
+        .execute()
+    
+    if not membership.data:
+        raise HTTPException(status_code=403, detail="You are not a member of this team")
+    
+    # Get team and competition info
+    team_result = supabase.table("teams") \
+        .select("competition_id") \
+        .eq("id", team_id) \
+        .execute()
+    
+    if not team_result.data:
+        raise HTTPException(status_code=404, detail="Team not found")
+    
+    competition_id = team_result.data[0]["competition_id"]
+    
+    # Get competition with timer fields
+    comp_result = supabase.table("competitions") \
+        .select("id, title, case_release_at, submission_deadline_at") \
+        .eq("id", competition_id) \
+        .execute()
+    
+    if not comp_result.data:
+        raise HTTPException(status_code=404, detail="Competition not found")
+    
+    competition = comp_result.data[0]
+    case_release_at = competition.get("case_release_at")
+    submission_deadline_at = competition.get("submission_deadline_at")
+    
+    now = datetime.utcnow()
+    
+    # Check if case is released
+    case_released = True
+    time_until_release = None
+    
+    if case_release_at:
+        try:
+            release_dt = datetime.fromisoformat(case_release_at.replace('Z', '+00:00'))
+            release_dt_naive = release_dt.replace(tzinfo=None)
+            if now < release_dt_naive:
+                case_released = False
+                time_until_release = (release_dt_naive - now).total_seconds()
+        except ValueError:
+            pass
+    
+    # If case not released, return timer info only
+    if not case_released:
+        return {
+            "case_released": False,
+            "case_release_at": case_release_at,
+            "time_until_release": time_until_release,
+            "files": []
+        }
+    
+    # Case is released - get files from storage
+    SUPABASE_URL = os.environ.get("SUPABASE_URL")
+    SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    
+    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+        raise HTTPException(status_code=500, detail="Storage configuration error")
+    
+    supabase_admin = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+    
+    try:
+        # List files in Cases/{competition_id}/
+        folder_path = f"Cases/{competition_id}"
+        list_result = supabase_admin.storage.from_("team-submissions").list(folder_path)
+        
+        files = []
+        for item in list_result or []:
+            if item.get("name") and not item.get("name").startswith("."):
+                file_path = f"{folder_path}/{item.get('name')}"
+                
+                # Generate signed URL (15 min = 900 seconds)
+                signed_url_result = supabase_admin.storage.from_("team-submissions").create_signed_url(
+                    file_path, 900
+                )
+                
+                download_url = None
+                if isinstance(signed_url_result, dict):
+                    download_url = signed_url_result.get('signedURL') or signed_url_result.get('signedUrl')
+                
+                files.append({
+                    "name": item.get("name"),
+                    "size": item.get("metadata", {}).get("size", 0),
+                    "download_url": download_url,
+                    "expires_in": 900
+                })
+        
+        return {
+            "case_released": True,
+            "case_release_at": case_release_at,
+            "submission_deadline_at": submission_deadline_at,
+            "files": files
+        }
+        
+    except Exception as e:
+        logger.error(f"Get case files error: {e}")
+        return {
+            "case_released": True,
+            "case_release_at": case_release_at,
+            "submission_deadline_at": submission_deadline_at,
+            "files": []
+        }
 
 
 @router.get("/teams/{team_id}/submission")
