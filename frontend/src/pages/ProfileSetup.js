@@ -137,9 +137,7 @@ function ProfileSetup() {
         return;
       }
       try {
-        const response = await axios.get(`${API_URL}/api/cfo/profile`, {
-          headers: { // SECURITY: Cookies sent automatically }
-        });
+        const response = await axios.get(`${API_URL}/api/cfo/profile`);
         
         const profile = response.data;
         
