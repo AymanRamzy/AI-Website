@@ -149,12 +149,20 @@ async def register(user_data: UserCreate):
 
 
 @router.post("/auth/login")
-async def login(user_credentials: UserLogin):
+async def login(user_credentials: UserLogin, response: Response):
+    """
+    SECURITY HARDENED: Login with HttpOnly cookie support
+    
+    P0-1: Sets HttpOnly, Secure cookie for session token
+    - Cookie: session_token (HttpOnly, Secure, SameSite=Lax)
+    - Also returns token in response for API clients
+    """
     import logging
+    from fastapi import Response
     logger = logging.getLogger(__name__)
     supabase = get_supabase_client()
 
-    # Email normalization (MANDATORY)
+    # Email normalization (MANDATORY - P1-6)
     normalized_email = user_credentials.email.strip().lower()
 
     try:
@@ -164,15 +172,20 @@ async def login(user_credentials: UserLogin):
         })
     except Exception as e:
         logger.error(f"Login auth error: {e}")
-        raise HTTPException(status_code=401,
-                            detail="Incorrect email or password")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password"
+        )
 
     if not auth_response or not auth_response.session or not auth_response.user:
-        raise HTTPException(status_code=401,
-                            detail="Incorrect email or password")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password"
+        )
 
     user_id = auth_response.user.id
     user_email = auth_response.user.email or normalized_email
+    access_token = auth_response.session.access_token
 
     try:
         profile_result = supabase.table("user_profiles") \
@@ -201,13 +214,32 @@ async def login(user_credentials: UserLogin):
             profile_data = insert_result.data[0] if insert_result.data else new_profile
         except Exception as e:
             logger.error(f"Failed to create profile: {e}")
-            raise HTTPException(status_code=500, detail="Failed to create user profile")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to create user profile"
+            )
 
     if not profile_data:
-        raise HTTPException(status_code=401, detail="User profile not found")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User profile not found"
+        )
+
+    # SECURITY P0-1: Set HttpOnly cookie for session token
+    response.set_cookie(
+        key="session_token",
+        value=access_token,
+        httponly=True,  # Prevents JavaScript access (XSS protection)
+        secure=True,  # HTTPS only
+        samesite="lax",  # CSRF protection
+        max_age=3600 * 24 * 7,  # 7 days
+        path="/"
+    )
+    
+    logger.info(f"User logged in successfully: {user_email}")
 
     return {
-        "access_token": auth_response.session.access_token,
+        "access_token": access_token,  # For API clients
         "token_type": "bearer",
         "user": UserResponse(
             id=profile_data["id"],
