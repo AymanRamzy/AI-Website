@@ -121,7 +121,9 @@ async def update_competition(comp_id: str, updates: CompetitionUpdate, current_u
             update_data[k] = v.isoformat()
         else:
             update_data[k] = v
-    update_data['updated_at'] = datetime.utcnow().isoformat()
+    
+    # Only add updated_at if it exists in the table (skip if column doesn't exist)
+    # update_data['updated_at'] = datetime.utcnow().isoformat()
     
     response = supabase.table('competitions').update(update_data).eq('id', comp_id).execute()
     if not response.data:
