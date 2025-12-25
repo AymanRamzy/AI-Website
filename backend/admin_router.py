@@ -563,7 +563,7 @@ async def upload_case_file(
     if file_ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid file type. Allowed: PDF, DOC, DOCX, XLS, XLSX, ZIP"
+            detail="Invalid file type. Allowed: PDF, DOC, DOCX, XLS, XLSX, ZIP"
         )
     
     MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB for case files
