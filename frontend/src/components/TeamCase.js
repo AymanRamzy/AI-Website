@@ -207,7 +207,7 @@ function TeamCase({ teamId, competition }) {
         {/* Read-only Notice */}
         <div className="mt-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
           <p className="text-sm text-yellow-800">
-            <strong>Note:</strong> This case file is read-only. Review the case carefully and prepare your team's solution for submission in the "Submission" tab.
+            <strong>Note:</strong> This case file is read-only. Review the case carefully and prepare your team&apos;s solution for submission in the &quot;Submission&quot; tab.
           </p>
         </div>
       </div>
