@@ -594,7 +594,7 @@ agent_communication:
          - Assign roles
          - Leave team
       
-      BACKEND URL: https://app-fix-12.preview.emergentagent.com
+      BACKEND URL: https://modex-branding.preview.emergentagent.com
       
       Please perform comprehensive testing of the authentication flow (items 1-4) as highest priority.
       Create test credentials and share them with the user for manual verification.
@@ -617,7 +617,7 @@ agent_communication:
       - JUDGE: judge1765146796@modex.com / JudgePass456!
       - ADMIN: admin1765146796@modex.com / AdminPass789!
       
-      BACKEND URL TESTED: https://app-fix-12.preview.emergentagent.com
+      BACKEND URL TESTED: https://modex-branding.preview.emergentagent.com
       
       KEY FINDINGS:
       - All authentication endpoints working correctly
@@ -644,7 +644,7 @@ agent_communication:
       5. Dashboard Access - Protected route access after successful login
       6. Logout Flow - Token removal and state clearing
       
-      FRONTEND URL: https://app-fix-12.preview.emergentagent.com
+      FRONTEND URL: https://modex-branding.preview.emergentagent.com
       
       Calling frontend testing agent for comprehensive e2e testing...
 
@@ -668,7 +668,7 @@ agent_communication:
       - NEW USER: frontendtest@modex.com / TestPass123! (created and tested)
       - BACKEND USER: participant1765146796@modex.com / SecurePass123! (verified working)
       
-      FRONTEND URL TESTED: https://app-fix-12.preview.emergentagent.com
+      FRONTEND URL TESTED: https://modex-branding.preview.emergentagent.com
       
       KEY FINDINGS:
       - Complete authentication flow working end-to-end

@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from typing import Dict, Any, Optional
 
 # Configuration
-BASE_URL = "https://app-fix-12.preview.emergentagent.com"
+BASE_URL = "https://modex-branding.preview.emergentagent.com"
 API_BASE = f"{BASE_URL}/api/cfo"
 
 class CFOAPITester:
