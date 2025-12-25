@@ -600,6 +600,13 @@ function Home() {
               <ArrowRight className="inline-block ml-2 w-5 h-5 group-hover:translate-x-2 transition-transform" />
             </Link>
           </div>
+
+          {/* Follow Us Section with Social Icons */}
+          <div className="mt-16 text-center">
+            <h3 className="text-2xl font-bold text-modex-primary mb-2">Follow Us</h3>
+            <p className="text-gray-600 mb-6">Stay connected and get the latest updates</p>
+            <SocialIcons />
+          </div>
         </div>
       </section>
     </>
