@@ -6,16 +6,20 @@ import { useAuth } from '../context/AuthContext';
  * Used by ALL protected routes (platform + competition)
  * 
  * Logic:
- * 1. Not authenticated → /signin
- * 2. Authenticated + profile incomplete → /complete-profile
- * 3. Authenticated + profile complete → allow access
+ * 1. Auth not initialized → show loading
+ * 2. Not authenticated → /signin
+ * 3. Authenticated + profile incomplete → /complete-profile
+ * 4. Authenticated + profile complete → allow access
+ * 
+ * MOBILE FIX: Must wait for authInitialized before any redirect
  */
 function ProtectedRoute({ children, adminOnly = false, skipProfileCheck = false }) {
-  const { user, loading } = useAuth();
+  const { user, loading, authInitialized } = useAuth();
   const location = useLocation();
 
-  // Show loading spinner while checking auth
-  if (loading) {
+  // MOBILE FIX: Show loading until auth is FULLY initialized
+  // This prevents premature redirects on mobile
+  if (loading || !authInitialized) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-modex-secondary"></div>
