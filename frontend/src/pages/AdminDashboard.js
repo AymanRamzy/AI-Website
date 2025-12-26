@@ -690,6 +690,11 @@ function AdminDashboard() {
           </div>
         </div>
       )}
+
+        {/* Team Chats Tab */}
+        {activeTab === 'team-chats' && (
+          <AdminTeamChat />
+        )}
     </div>
   );
 }
