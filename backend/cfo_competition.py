@@ -252,6 +252,129 @@ async def login(user_credentials: UserLogin, response: Response):
     }
 
 
+class GoogleCallbackRequest(BaseModel):
+    access_token: str
+    refresh_token: Optional[str] = None
+    user: dict
+
+
+@router.post("/auth/google-callback")
+async def google_callback(request: GoogleCallbackRequest, response: Response):
+    """
+    Handle Google OAuth callback from frontend.
+    
+    This endpoint:
+    1. Receives the Supabase session tokens from frontend
+    2. Creates/updates user profile if needed
+    3. Sets HttpOnly cookie for session management
+    4. Returns profile completion status
+    
+    SECURITY: 
+    - No manual token validation (trust Supabase)
+    - HttpOnly cookie for session
+    - Profile auto-created for new OAuth users
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    supabase = get_supabase_client()
+    
+    access_token = request.access_token
+    user_data = request.user
+    
+    if not access_token or not user_data:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Missing access token or user data"
+        )
+    
+    user_id = user_data.get("id")
+    user_email = user_data.get("email", "").strip().lower()
+    full_name = user_data.get("full_name") or user_data.get("name") or user_email.split("@")[0]
+    avatar_url = user_data.get("avatar_url")
+    
+    if not user_id or not user_email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid user data"
+        )
+    
+    logger.info(f"Google OAuth callback for user: {user_email}")
+    
+    # Check if user profile exists
+    try:
+        profile_result = supabase.table("user_profiles") \
+            .select("*") \
+            .eq("id", user_id) \
+            .execute()
+        
+        profile_data = profile_result.data[0] if profile_result.data else None
+    except Exception as e:
+        logger.warning(f"Profile lookup error: {e}")
+        profile_data = None
+    
+    # Create profile if it doesn't exist (new OAuth user)
+    if not profile_data:
+        logger.info(f"Creating new profile for Google user: {user_email}")
+        now = datetime.utcnow().isoformat()
+        new_profile = {
+            "id": user_id,
+            "email": user_email,
+            "full_name": full_name,
+            "avatar_url": avatar_url,
+            "role": "participant",
+            "auth_provider": "google",
+            "created_at": now,
+            "updated_at": now,
+            "profile_completed": False
+        }
+        
+        try:
+            insert_result = supabase.table("user_profiles").insert(new_profile).execute()
+            profile_data = insert_result.data[0] if insert_result.data else new_profile
+            logger.info(f"Created profile for Google user: {user_email}")
+        except Exception as e:
+            # Profile might already exist (race condition), try to fetch again
+            logger.warning(f"Profile insert failed (might exist): {e}")
+            try:
+                profile_result = supabase.table("user_profiles") \
+                    .select("*") \
+                    .eq("email", user_email) \
+                    .execute()
+                profile_data = profile_result.data[0] if profile_result.data else None
+            except Exception:
+                pass
+            
+            if not profile_data:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Failed to create user profile"
+                )
+    
+    # Set HttpOnly cookie for session
+    response.set_cookie(
+        key="session_token",
+        value=access_token,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        max_age=3600 * 24 * 7,  # 7 days
+        path="/"
+    )
+    
+    logger.info(f"Google user signed in: {user_email}")
+    
+    return {
+        "success": True,
+        "profile_completed": profile_data.get("profile_completed", False),
+        "user": {
+            "id": profile_data["id"],
+            "email": profile_data["email"],
+            "full_name": profile_data.get("full_name"),
+            "role": profile_data.get("role", "participant")
+        }
+    }
+
+
 @router.post("/auth/logout")
 async def logout(response: Response, current_user: User = Depends(get_current_user)):
     """
