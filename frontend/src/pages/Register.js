@@ -13,6 +13,7 @@ function Register() {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const { register, user } = useAuth();
   const navigate = useNavigate();
 
