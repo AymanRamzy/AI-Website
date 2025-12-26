@@ -92,9 +92,11 @@ export const AuthProvider = ({ children }) => {
   /**
    * Load user session from backend
    * Can be called on mount or after OAuth callback
+   * MOBILE FIX: Falls back to sessionStorage token if cookie fails
    */
   const loadUser = useCallback(async () => {
     try {
+      // First try with cookies
       const response = await axios.get(`${API_URL}/api/cfo/auth/me`, {
         timeout: 5000,
         withCredentials: true
@@ -107,7 +109,27 @@ export const AuthProvider = ({ children }) => {
       
       return { success: true, user: response.data };
     } catch (error) {
+      // MOBILE FIX: If cookie auth fails, try sessionStorage token
       if (error.response?.status === 401) {
+        const fallbackToken = sessionStorage.getItem('modex_token');
+        if (fallbackToken) {
+          try {
+            const retryResponse = await axios.get(`${API_URL}/api/cfo/auth/me`, {
+              timeout: 5000,
+              headers: { 'Authorization': `Bearer ${fallbackToken}` }
+            });
+            
+            setUser({
+              ...retryResponse.data,
+              profile_completed: retryResponse.data.profile_completed || false
+            });
+            
+            return { success: true, user: retryResponse.data };
+          } catch (retryError) {
+            // Token invalid, clear it
+            sessionStorage.removeItem('modex_token');
+          }
+        }
         setUser(null);
       } else {
         console.error('Failed to load user session:', error.message);
