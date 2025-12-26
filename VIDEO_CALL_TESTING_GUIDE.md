@@ -14,13 +14,13 @@
 ## 📝 How to Test Video Calls
 
 ### **Step 1: Login**
-1. Go to: https://modex-branding.preview.emergentagent.com/login
+1. Go to: https://modex-uploader.preview.emergentagent.com/login
 2. Login with: `frontendtest@modex.com` / `TestPass123!`
 
 ### **Step 2: Access Your Team**
 1. From Dashboard, click "My Team" tab
 2. Click "Manage Team" button
-3. Or go directly to: https://modex-branding.preview.emergentagent.com/teams/b5f47e8e-a185-486e-ab50-74540d880d71
+3. Or go directly to: https://modex-uploader.preview.emergentagent.com/teams/b5f47e8e-a185-486e-ab50-74540d880d71
 
 ### **Step 3: Open Video Calls Tab**
 1. You'll see three tabs: Members | Chat | Video Calls
@@ -166,7 +166,7 @@ Before reporting success, verify:
 
 **Direct Team Video Page:**
 ```
-https://modex-branding.preview.emergentagent.com/teams/b5f47e8e-a185-486e-ab50-74540d880d71
+https://modex-uploader.preview.emergentagent.com/teams/b5f47e8e-a185-486e-ab50-74540d880d71
 ```
 Then click "Video Calls" tab.
 

@@ -52,7 +52,7 @@ async def register(user_data: UserCreate):
     production_url = os.environ.get("FRONTEND_URL") or os.environ.get("REACT_APP_BACKEND_URL", "")
     if not production_url:
         # Fallback: construct from request or use known domain
-        production_url = "https://modex-branding.preview.emergentagent.com"
+        production_url = "https://modex-uploader.preview.emergentagent.com"
     
     # Ensure no trailing slash
     production_url = production_url.rstrip('/')

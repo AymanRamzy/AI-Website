@@ -1,155 +1,82 @@
-<analysis>**original_problem_statement**: The user wants to work on a ModEX platform. The initial codebase was incomplete, requiring the user to upload missing frontend source files. The core tasks evolved through a series of requests:
-1.  Set up and run the full-stack ModEX application.
-2.  Perform comprehensive security hardening on the backend and frontend as directed by a series of security prompts (implementing RLS, HttpOnly cookies, server-side RBAC, etc.).
-3.  Implement multiple branding updates, including logos, fonts, and favicons.
-4.  Fix a critical bug where the home page was incorrectly redirecting to the sign-in page.
-5.  Fix a persistent favicon caching issue.
-6.  Add a complete set of official social media icons to the website's footer and a Follow Us section on the contact page.
+<analysis>**original_problem_statement**: The user requested a series of features and bug fixes for the ModEX platform. The work can be summarized in several major phases:
+1.  **Team Collaboration Feature:** Implement Case and Submission tabs within the existing team workspace. This involved creating new frontend components, adding backend endpoints for fetching case data and handling file uploads, and creating a new  database table.
+2.  **Timer-Based Controls:** Enhance the platform with admin-configurable timers. Admins need to be able to set a Case Release Time and a Submission Deadline for each competition. The UI must show countdowns and lock/unlock features based on these server-enforced times.
+3.  **File Upload Bug:** The user reported that file submissions were uploading forever. This led to a multi-step debugging process that uncovered and fixed issues with incorrect API paths, restrictive bucket MIME types, and a case-sensitive bucket name ().
+4.  **Google Sign-In:** Implement Google Sign-In using Supabase OAuth. This required adding a frontend button, handling the auth callback, and adding a backend endpoint to sync the Supabase session into the application's cookie-based session management.
+5.  **Global Chat:** Add a Global Chat tab to the main dashboard, separate from team chats. This was implemented using Supabase Realtime for instant messaging, backed by a new  table with Row-Level Security.
+6.  **Google Sign-In Bugs:** After implementation, the user reported two bugs: a double login was required, and new users were incorrectly sent to a profile completion page. These were fixed by refining the frontend auth context to handle race conditions and updating the backend to mark Google users as profile complete by default.
 
 **User's preferred language**: English
 
 **what currently exists?**
-A fully operational full-stack application (ModEX platform) built with React and FastAPI, using Supabase for the database, auth, and storage. The application has undergone significant security hardening, including a shift to HttpOnly cookie-based authentication, server-side role enforcement, and RLS policies on the database. The platform's branding (logos, favicon, fonts) has been updated as per user specifications. Social media icons have been added to the footer and are in the process of being verified for the contact page.
+A full-stack React/FastAPI application with a Supabase backend. Key features include:
+-   **Authentication**: Supports both email/password and Google Sign-In, using a secure HttpOnly cookie-based session system.
+-   **Dashboard**: A central dashboard with tabs for My Teams, Competitions, and a Global Chat.
+-   **Team Workspace**: A detailed team view with tabs for Members, Chat, Video, Case, and Submission.
+-   **Case/Submission Flow**: A complete, timer-driven system where admins can upload case files and set release/deadline dates. Teams see countdowns and can download cases and upload submissions according to these server-enforced schedules.
+-   **Global Chat**: A real-time, public chat for all authenticated users, built on Supabase Realtime.
 
 **Last working item**:
--   Last item agent was working: The agent was adding a complete set of 7 official social media icons to the Follow Us section on the  page, replacing the old placeholder icons. This was based on the user's request same to be done in follow us section and a clarifying screenshot they provided.
--   Status: USER VERIFICATION PENDING
--   Agent Testing Done: N (The agent applied the code changes and restarted the frontend, but a subsequent screenshot attempt failed. The code is expected to work, but visual confirmation is missing.)
--   Which testing method agent to use? screenshot tool (Navigate to the  page to visually verify that all 7 social media icons are present and correct in the Follow Us section.)
+-   Last item agent was working: Fixing a bug where new users signing in with Google were redirected to the  page instead of the main dashboard. The agent modified the backend to set  for new users created via the Google OAuth callback.
+-   Status: IN PROGRESS
+-   Agent Testing Done: N
+-   Which testing method agent to use? Manual testing. The agent must simulate a *new* user registration via Google to verify the fix. This requires: 1. Logging out. 2. Deleting the test user from both  and  in the Supabase dashboard to ensure it's treated as a new user. 3. Clicking Sign in with Google and verifying the final redirect is to the dashboard (), not the profile completion page.
 -   User Testing Done: N
 
 **All Pending/In progress Issue list**:
--   Issue 1: Verify social media icons on the Contact page (P0)
+-   Issue 1: Verify the fix for the Google Sign-In redirect for new users. (P0)
+-   Issue 2: Verify the team file submission functionality is fully working. (P1)
 
 Issues Detail:
 -   Issue 1:
-    -   Attempted fixes: The agent edited  to replace the old social icons with the new set of 7 icons from the  library. It then restarted the frontend service. The fix is implemented but has not been visually confirmed.
-    -   Next debug checklist:
-        1.  Use the screenshot tool to capture the  page.
-        2.  Verify that the Follow Us section displays all 7 social icons (WhatsApp, Facebook, Instagram, TikTok, Snapchat, LinkedIn, Telegram).
-        3.  If the icons are not present, review  to ensure the changes were saved correctly and check the browser console for any rendering errors.
-    -   Why fix this issue and what will be achieved with the fix? This will complete the user's request to have consistent social media branding across all relevant sections of the website.
-    -   Status: USER VERIFICATION PENDING
+    -   Attempted fixes: The agent edited  within the  endpoint to add  when creating a new user profile.
+    -   Next debug checklist: Follow the manual testing steps outlined in the Last working item section to test the complete onboarding flow for a new Google user.
+    -   Why fix this issue and what will be achieved with the fix? To ensure a seamless onboarding experience for new users signing up with Google, removing the unnecessary profile completion step.
+    -   Status: IN PROGRESS
     -   Is recurring issue? N
-    -   Should Test frontend/backend/both after fix? Frontend
+    -   Should Test frontend/backend/both after fix? Both (the flow is end-to-end).
+    -   Blocked on other issue: None
+
+-   Issue 2:
+    -   Attempted fixes: The user initially reported that file uploads were stuck. The agent applied multiple fixes: 1. Corrected the API URL path in the frontend. 2. Changed the backend to upload files with a generic MIME type ( and later ) to bypass bucket restrictions. 3. Corrected the code to use the case-sensitive bucket name . The user never gave a final confirmation that this last fix worked.
+    -   Next debug checklist: 1. Log in as a team member. 2. Navigate to the Team -> Submission tab. 3. Attempt to upload a ZIP or Excel file. 4. Confirm the upload completes and the UI updates to show the submitted file. 5. Verify the file appears in the  folder in the Supabase Storage dashboard.
+    -   Why fix this issue and what will be achieved with the fix? This is a core feature for the platform. Fixing it ensures teams can submit their solutions to competitions.
+    -   Status: USER VERIFICATION PENDING
+    -   Is recurring issue? Y
+    -   Should Test frontend/backend/both after fix? Both.
     -   Blocked on other issue: None
 
 **In progress Task List**:
 None.
 
 **Upcoming and Future Tasks**
-None requested by the user.
+None were explicitly requested by the user in the provided history.
 
 **Completed work in this session**
--   **Application Setup:**
-    -   Successfully set up the full-stack ModEX platform from user-provided files.
-    -   Installed all backend (
-Usage:   
-  pip <command> [options]
-
-Commands:
-  install                     Install packages.
-  lock                        Generate a lock file.
-  download                    Download packages.
-  uninstall                   Uninstall packages.
-  freeze                      Output installed packages in requirements format.
-  inspect                     Inspect the python environment.
-  list                        List installed packages.
-  show                        Show information about installed packages.
-  check                       Verify installed packages have compatible dependencies.
-  config                      Manage local and global configuration.
-  search                      Search PyPI for packages.
-  cache                       Inspect and manage pip's wheel cache.
-  index                       Inspect information available from package indexes.
-  wheel                       Build wheels from your requirements.
-  hash                        Compute hashes of package archives.
-  completion                  A helper command used for command completion.
-  debug                       Show information useful for debugging.
-  help                        Show help for commands.
-
-General Options:
-  -h, --help                  Show help.
-  --debug                     Let unhandled exceptions propagate outside the
-                              main subroutine, instead of logging them to
-                              stderr.
-  --isolated                  Run pip in an isolated mode, ignoring
-                              environment variables and user configuration.
-  --require-virtualenv        Allow pip to only run in a virtual environment;
-                              exit with an error otherwise.
-  --python <python>           Run pip with the specified Python interpreter.
-  -v, --verbose               Give more output. Option is additive, and can be
-                              used up to 3 times.
-  -V, --version               Show version and exit.
-  -q, --quiet                 Give less output. Option is additive, and can be
-                              used up to 3 times (corresponding to WARNING,
-                              ERROR, and CRITICAL logging levels).
-  --log <path>                Path to a verbose appending log.
-  --no-input                  Disable prompting for input.
-  --keyring-provider <keyring_provider>
-                              Enable the credential lookup via the keyring
-                              library if user input is allowed. Specify which
-                              mechanism to use [auto, disabled, import,
-                              subprocess]. (default: auto)
-  --proxy <proxy>             Specify a proxy in the form
-                              scheme://[user:passwd@]proxy.server:port.
-  --retries <retries>         Maximum attempts to establish a new HTTP
-                              connection. (default: 5)
-  --timeout <sec>             Set the socket timeout (default 15 seconds).
-  --exists-action <action>    Default action when a path already exists:
-                              (s)witch, (i)gnore, (w)ipe, (b)ackup, (a)bort.
-  --trusted-host <hostname>   Mark this host or host:port pair as trusted,
-                              even though it does not have valid or any HTTPS.
-  --cert <path>               Path to PEM-encoded CA certificate bundle. If
-                              provided, overrides the default. See 'SSL
-                              Certificate Verification' in pip documentation
-                              for more information.
-  --client-cert <path>        Path to SSL client certificate, a single file
-                              containing the private key and the certificate
-                              in PEM format.
-  --cache-dir <dir>           Store the cache data in <dir>.
-  --no-cache-dir              Disable the cache.
-  --disable-pip-version-check
-                              Don't periodically check PyPI to determine
-                              whether a new version of pip is available for
-                              download. Implied with --no-index.
-  --no-color                  Suppress colored output.
-  --use-feature <feature>     Enable new functionality, that may be backward
-                              incompatible.
-  --use-deprecated <feature>  Enable deprecated functionality, that will be
-                              removed in the future.
-  --resume-retries <resume_retries>
-                              Maximum attempts to resume or restart an
-                              incomplete download. (default: 5)) and frontend (yarn install v1.22.22
-info No lockfile found.
-[1/4] Resolving packages...
-[2/4] Fetching packages...
-[3/4] Linking dependencies...
-[4/4] Building fresh packages...
-success Saved lockfile.
-Done in 0.12s.) dependencies.
-    -   Configured and started services using .
--   **Initial Debugging:**
-    -   Resolved missing Supabase credentials by obtaining them from the user and creating  files for both frontend and backend.
-    -   Fixed a blank frontend page issue by ensuring Supabase environment variables were available to the React app and restarting the service.
--   **Comprehensive Security Hardening:**
-    -   Implemented HttpOnly cookie-based authentication, removing all  token usage from the frontend ( and all API-calling pages).
-    -   Enforced server-side admin role checks and secured CV download endpoints ().
-    -   Separated Supabase clients into  and  to prevent unintended RLS bypass ().
-    -   Added input validation (file type, size) and duplicate submission prevention for CV uploads ().
-    -   Implemented a global Axios 401 interceptor on the frontend for clean session expiry handling ().
-    -   Added lightweight rate limiting to critical backend endpoints (, ).
-    -   Created a new SQL migration to enable and enforce RLS security policies ().
+-   **Team Collaboration Feature:**
+    -   Created Case and Submission tabs and their corresponding components (, ).
+    -   Modified  to integrate the new tabs.
+    -   Added backend endpoints in  to support fetching case files and handling submissions.
+-   **Admin Timer Controls:**
+    -   Overhauled  to allow admins to upload case files and set  and  timers for competitions.
+    -   Updated backend models and API endpoints in  and  to persist and enforce these timers.
+    -   Rewrote frontend components (, ) to display countdown timers and lock/unlock features based on server data.
+-   **Google Sign-In Implementation:**
+    -   Added Google OAuth login flow to , , and .
+    -   Created a backend endpoint () in  to sync the Supabase session with the application's session cookie.
+-   **Global Chat Feature:**
+    -   Added a Global Chat tab to .
+    -   Created  component utilizing Supabase Realtime for live messaging.
+    -   Created a migration () for the  table and its RLS policies.
 -   **Bug Fixes:**
-    -   Resolved a critical issue where an aggressive Axios interceptor was redirecting all visitors to the sign-in page. The fix involved making the interceptor smarter to only act on failed requests for authenticated users.
-    -   Fixed a persistent favicon caching issue by adding a version query parameter to the link in .
--   **Branding & UI Updates:**
-    -   Updated the application's global font and color scheme ().
-    -   Replaced the header logo and hero section logo with new assets (, ).
-    -   Updated the favicon multiple times as requested by the user.
-    -   Added a full set of 7 official social media icons to the site footer ().
+    -   Resolved multiple file upload blockers (API path, MIME type, bucket name case-sensitivity).
+    -   Fixed a Google Sign-In double-login issue by improving auth state handling in .
+    -   Corrected a critical bug in the submission endpoint where the competition was not being resolved correctly, causing the deadline check to fail silently.
+    -   Fixed a PATCH endpoint failure by removing an attempt to write to a non-existent  column.
+    -   Improved UI/UX of countdown timers based on user feedback.
 
 **Earlier issues found/mentioned but not fixed**
-None. All issues raised by the user or identified by the agent during this session have been addressed.
+None. All identified issues were addressed.
 
 **Known issue recurrence from previous fork**
 -   Issue recurrence in previous fork: None
@@ -160,46 +87,50 @@ None. All issues raised by the user or identified by the agent during this sessi
 
 
 **Key Technical Concepts**
--   **Frontend:** React, React Router, TailwindCSS, Axios,  (for icons)
+-   **Frontend:** React, React Router, TailwindCSS, Axios
 -   **Backend:** FastAPI, Pydantic
--   **Database & BaaS:** Supabase (PostgreSQL, Auth, Storage)
--   **Authentication:** HttpOnly cookie-based sessions (JWTs are stored in secure cookies, not ).
--   **Security:** Row-Level Security (RLS) in Supabase, Server-Side Role-Based Access Control (RBAC), CSRF protection (implied by cookie auth), rate limiting.
+-   **Database & BaaS:** Supabase (PostgreSQL, Auth, Storage, **Realtime**)
+-   **Authentication:** HttpOnly cookie-based sessions, with Supabase handling the primary email/password and Google OAuth flows.
+-   **Security:** Row-Level Security (RLS) on new database tables.
 
 **key DB schema**
--   **profiles:** {user_id, full_name, email, is_admin, ...}
--   **cfo_applications:** {id, user_id, competition_id, cv_path, status, ...}
--   **competitions:** {id, title, description, start_date, end_date, ...}
--   **cfo_cvs (Storage Bucket):** Private bucket for storing CV files. Access is managed via signed URLs generated by the backend.
+-   **competitions:** {...,  timestamptz,  timestamptz}
+-   **team_submissions:** {id, team_id, competition_id, file_path, submitted_by, submitted_at, ...}
+-   **global_chat_messages:** {id, user_id, user_name, message, created_at}
 
 **changes in tech stack**
-None. The existing stack (React, FastAPI, Supabase) was maintained.
+-   Addition of **Supabase Realtime** for the Global Chat feature.
 
 **All files of reference**
-*   : Recently edited to add social icons.
-*   : Edited to add social icons to the footer and update the header logo.
-*   : Heavily modified to implement cookie-based auth and a global 401 interceptor.
-*   : Edited to update the favicon with a cache-busting parameter.
-*   : Edited to add rate-limiting middleware.
-*   : New file created to handle user session validation from cookies.
-*   : Edited for security hardening and to use HttpOnly cookies for login/logout.
-*   : Edited for security hardening (admin checks, signed URLs).
-*   : New file created to enforce RLS policies.
+*   : Heavily modified for submission logic, timer enforcement, and Google Auth callback.
+*   : Modified to add admin controls for case files and timers.
+*   : Overhauled to provide UI for new admin controls.
+*   : Modified to add the Global Chat tab.
+*   : Modified to add Case and Submission tabs.
+*   : New file for displaying case files with timer logic.
+*   : New file for handling submissions with timer logic.
+*   : New file for the real-time chat feature.
+*   : Rewritten to manage a loading state and fix auth race conditions.
+*   : Rewritten to properly handle the post-Google-Auth flow.
+*   : New migration for the submissions table.
+*   : New migration for the global chat table and RLS policies.
 
 **Areas that need refactoring**:
--   The file  is over 400 lines long and contains the logic for the header, mobile navigation, and footer. It should be broken down into separate, more manageable components (e.g., , , ).
+-   : Remains monolithic and should be broken into , , etc.
+-   : Has grown significantly and now handles competition management, user management, and case file management. It should be refactored into smaller, dedicated components.
 
 **key api endpoints**
--   : Authenticates user and sets HttpOnly cookie.
--   : Clears the HttpOnly session cookie.
--   : Retrieves current user profile based on session cookie.
--   : Securely uploads a user's CV.
--   : Admin-only endpoint to get a short-lived signed URL for a CV.
+-   : New endpoint to create an app session from a Supabase Google login.
+-   : New admin endpoint to upload case files.
+-   : New team endpoint to fetch case files (with timer logic).
+-   : Heavily modified to enforce deadlines and correctly handle file storage.
+-   : Modified to accept and save timer data.
 
 **Critical Info for New Agent**
--   **Authentication is Cookie-Based:** Do not use  or  headers on the frontend. The backend handles sessions via HttpOnly cookies. All authenticated requests rely on credentials being sent automatically by the browser.
--   **Favicon Caching:** Browser caching for favicons is aggressive. If updating the favicon, ensure you append a version query string (e.g., ) to the link in  to force a refresh.
--   **Component Structure:** The  component is monolithic and could benefit from refactoring into smaller, dedicated components for header, footer, etc.
+-   **File Submission Testing:** The file submission flow has been a recurring problem. When testing, be sure to verify not just the UI, but also that the file physically appears in the correct Supabase Storage path: .
+-   **Google Sign-In Testing:** To test the new user Google Sign-In flow, you MUST delete the user from Supabase's  and  tables first. Otherwise, Supabase will treat it as a returning user login.
+-   **Bucket Name Case-Sensitivity:** The storage bucket for submissions is named  (capital 'T'). The code failed previously due to using a lowercase name. Be mindful of this if making any changes related to storage.
+-   **Supabase Configuration:** The functionality relies on manual configuration in the Supabase Dashboard for Google OAuth credentials and Storage bucket MIME types. Do not assume these can be changed via code.
 
 **documents and test_reports created in this job**
 -   
@@ -208,32 +139,32 @@ None. The existing stack (React, FastAPI, Supabase) was maintained.
 -   
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  still not added
-2.  same to be done in follow us section
-3.  web icone change it to this one
-4.  still the same
-5.  https://task-generator-4.preview.emergentagent.com/signin?redirect=%2F why i go to this directly from preview still ?
-6.  still redirecting to sign in page, keep it to home page
-7.  remove the large logo and the preview should open the home screen not to direct to sign in page
-8.  (uploaded 2 artifacts: , )
-9.  (uploaded 5 artifacts: , , , , )
-10. nothing to be done on elegence website , it's modex .,, where's the preview?
+1.  add seconds here
+2.  add seconds, but if you can make the count down is bigger and same as countdown before case released
+3.  Still there are no countdown, why not add the same in the case tab ?
+4.  (User provides prompt to fix submission logic)
+5.  after signin with google redirect me to complete-profile not home screen
+6.  (User provides prompt to fix Google double-login)
+7.  (User provides prompt to add Global Chat)
+8.  (User provides prompt to add Google Sign-In)
+9.  add seconds here
+10. I have updated both tabs to show seconds in the countdown format...
 
 **Project Health Check:**
--   **Broken:** None
--   **Mocked:** None
+-   **Broken:** None.
+-   **Mocked:** None.
 
 **3rd Party Integrations**
--   **Supabase:** Used for PostgreSQL database, authentication, and file storage.
+-   **Supabase**: Used for PostgreSQL database, Authentication (including Google OAuth), File Storage, and Realtime.
 
 **Testing status**
--   Testing agent used after significant changes: NO
+-   Testing agent used after significant changes: YES
 -   Troubleshoot agent used after agent stuck in loop: NO
 -   Test files created: []
 -   Known regressions: None
 
 **Credentials to test flow:**
-The necessary  and keys have been provided by the user and are located in the  and  files. You can register a new user through the UI to test authenticated flows.
+Credentials for email/password login and Google OAuth must be configured in the Supabase project. The agent can register a new user through the UI or use Google Sign-In for testing.
 
 **What agent forgot to execute**
-The agent initially misunderstood the Follow us request and modified the wrong page () before being corrected by the user with a screenshot. It then correctly identified and modified the  page but failed to get a final verification screenshot.</analysis>
+The agent implemented fixes for the Google Sign-In redirect and the file submission flow but did not perform a final verification test for either. These are the most critical pending items for the next agent.</analysis>

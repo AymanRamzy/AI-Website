@@ -9,7 +9,7 @@ from datetime import datetime
 
 class TeamSubmissionTester:
     def __init__(self):
-        self.base_url = "https://modex-branding.preview.emergentagent.com"
+        self.base_url = "https://modex-uploader.preview.emergentagent.com"
         self.api_base = f"{self.base_url}/api/cfo"
         self.token = None
         self.team_id = None

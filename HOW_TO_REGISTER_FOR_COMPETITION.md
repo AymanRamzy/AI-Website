@@ -3,7 +3,7 @@
 ## ✅ STEP-BY-STEP GUIDE
 
 ### Step 1: Login to Your Account
-1. Go to: https://modex-branding.preview.emergentagent.com/login
+1. Go to: https://modex-uploader.preview.emergentagent.com/login
 2. Enter your credentials:
    - **Email:** `frontendtest@modex.com`
    - **Password:** `TestPass123!`
