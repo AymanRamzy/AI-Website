@@ -731,3 +731,142 @@ async def delete_case_file(
     except Exception as e:
         logger.error(f"Delete case file error: {e}")
         raise HTTPException(status_code=500, detail="Failed to delete file")
+
+
+# =========================================================
+# ADMIN TEAM CHAT MANAGEMENT
+# =========================================================
+
+@router.get("/teams")
+async def get_all_teams(
+    competition_id: str = None,
+    current_user: User = Depends(get_admin_user)
+):
+    """Get all teams for admin monitoring. Optionally filter by competition."""
+    supabase = get_supabase_client()
+    
+    query = supabase.table('teams').select('*, team_members(user_id, role)')
+    
+    if competition_id:
+        query = query.eq('competition_id', competition_id)
+    
+    response = query.order('created_at', desc=True).execute()
+    
+    teams = []
+    for team in response.data or []:
+        teams.append({
+            "id": team['id'],
+            "name": team['name'],
+            "competition_id": team.get('competition_id'),
+            "status": team.get('status', 'forming'),
+            "created_at": team.get('created_at'),
+            "member_count": len(team.get('team_members', []))
+        })
+    
+    return teams
+
+
+@router.get("/teams/{team_id}/chat")
+async def get_team_chat_admin(
+    team_id: str,
+    limit: int = 100,
+    current_user: User = Depends(get_admin_user)
+):
+    """Get team chat messages for admin monitoring."""
+    supabase = get_supabase_client()
+    
+    # Verify team exists
+    team_response = supabase.table('teams').select('id, name').eq('id', team_id).execute()
+    if not team_response.data:
+        raise HTTPException(status_code=404, detail="Team not found")
+    
+    team = team_response.data[0]
+    
+    # Get messages
+    messages_response = supabase.table('chat_messages')\
+        .select('*')\
+        .eq('team_id', team_id)\
+        .order('created_at', desc=False)\
+        .limit(limit)\
+        .execute()
+    
+    messages = []
+    for msg in messages_response.data or []:
+        messages.append({
+            "id": msg['id'],
+            "team_id": msg['team_id'],
+            "user_id": msg['user_id'],
+            "user_name": msg['user_name'],
+            "message_type": msg['message_type'],
+            "content": msg['content'],
+            "file_url": msg.get('file_url'),
+            "file_name": msg.get('file_name'),
+            "file_size": msg.get('file_size'),
+            "timestamp": msg.get('created_at'),
+            "is_admin": msg.get('is_admin', False)
+        })
+    
+    return {
+        "team": team,
+        "messages": messages
+    }
+
+
+@router.post("/teams/{team_id}/chat")
+async def send_admin_message(
+    team_id: str,
+    message: dict,
+    current_user: User = Depends(get_admin_user)
+):
+    """Send a message to a team chat as admin (for support)."""
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    supabase = get_supabase_client()
+    
+    # Verify team exists
+    team_response = supabase.table('teams').select('id').eq('id', team_id).execute()
+    if not team_response.data:
+        raise HTTPException(status_code=404, detail="Team not found")
+    
+    content = message.get('content', '').strip()
+    if not content:
+        raise HTTPException(status_code=400, detail="Message content required")
+    
+    # Build admin message with indicator
+    message_dict = {
+        "team_id": team_id,
+        "user_id": current_user.id,
+        "user_name": f"🛡️ Admin: {current_user.full_name}",
+        "message_type": "text",
+        "content": content,
+        "is_admin": True
+    }
+    
+    try:
+        response = supabase.table('chat_messages').insert(message_dict).execute()
+        
+        if not response.data:
+            raise HTTPException(status_code=500, detail="Failed to send message")
+        
+        msg = response.data[0]
+        logger.info(f"Admin {current_user.id} sent message to team {team_id}")
+        
+        return {
+            "success": True,
+            "message": {
+                "id": msg['id'],
+                "team_id": msg['team_id'],
+                "user_id": msg['user_id'],
+                "user_name": msg['user_name'],
+                "content": msg['content'],
+                "timestamp": msg.get('created_at'),
+                "is_admin": True
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Admin chat error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to send message")
