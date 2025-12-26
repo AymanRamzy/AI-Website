@@ -1824,19 +1824,30 @@ async def submit_team_solution(
     """
     Submit team's final solution for the competition case.
     Only one submission per team per competition.
+    
+    CRITICAL ORDER:
+    1. Validate user is team member
+    2. Get team and resolve competition EXPLICITLY
+    3. Check deadline BEFORE any file processing
+    4. Check for existing submission
+    5. Validate and upload file
     """
     import logging
     from supabase import create_client
     import uuid
     logger = logging.getLogger(__name__)
     
-    # Validate file is provided
+    # =========================================================
+    # STEP 1: Validate file is provided (quick check)
+    # =========================================================
     if not file or not file.filename:
         raise HTTPException(status_code=400, detail="No file provided")
     
     supabase = get_supabase_client()
     
-    # Verify user is a team member
+    # =========================================================
+    # STEP 2: Verify user is a team member
+    # =========================================================
     try:
         membership = supabase.table("team_members") \
             .select("id") \
@@ -1852,7 +1863,9 @@ async def submit_team_solution(
         logger.error(f"Membership check failed: {e}")
         raise HTTPException(status_code=500, detail="Failed to verify team membership")
     
-    # Get team to find competition_id if not provided
+    # =========================================================
+    # STEP 3: Get team and EXPLICITLY resolve competition
+    # =========================================================
     try:
         team_result = supabase.table("teams") \
             .select("competition_id") \
@@ -1862,36 +1875,75 @@ async def submit_team_solution(
         if not team_result.data:
             raise HTTPException(status_code=404, detail="Team not found")
         
-        comp_id = competition_id or team_result.data[0]["competition_id"]
+        comp_id = team_result.data[0].get("competition_id")
+        
+        # Override with provided competition_id if given
+        if competition_id:
+            comp_id = competition_id
+        
+        # HARD GUARD: competition_id must exist
+        if not comp_id:
+            raise HTTPException(status_code=400, detail="Team is not associated with any competition")
+            
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Team fetch failed: {e}")
         raise HTTPException(status_code=500, detail="Failed to retrieve team information")
     
-    # CRITICAL: Check submission deadline
+    # =========================================================
+    # STEP 4: EXPLICITLY fetch competition and check deadline
+    # This MUST happen BEFORE any file upload
+    # =========================================================
     try:
         comp_result = supabase.table("competitions") \
-            .select("submission_deadline_at") \
+            .select("id, submission_deadline_at, title") \
             .eq("id", comp_id) \
             .execute()
         
-        if comp_result.data:
-            deadline = comp_result.data[0].get("submission_deadline_at")
-            if deadline:
-                deadline_dt = datetime.fromisoformat(deadline.replace('Z', '+00:00'))
-                deadline_naive = deadline_dt.replace(tzinfo=None)
-                if datetime.utcnow() > deadline_naive:
-                    raise HTTPException(
-                        status_code=403,
-                        detail="Submission deadline has passed. No more submissions are accepted."
-                    )
+        # HARD GUARD: Competition must exist
+        if not comp_result.data:
+            logger.error(f"Competition not found for id: {comp_id}")
+            raise HTTPException(status_code=400, detail="Competition not found for this team")
+        
+        competition = comp_result.data[0]
+        deadline = competition.get("submission_deadline_at")
+        
+        # HARD GUARD: Deadline must be configured
+        if not deadline:
+            logger.error(f"Submission deadline not configured for competition: {comp_id}")
+            raise HTTPException(
+                status_code=400, 
+                detail="Submission deadline not configured for this competition. Contact administrator."
+            )
+        
+        # CHECK DEADLINE BEFORE ANY FILE PROCESSING
+        try:
+            deadline_dt = datetime.fromisoformat(deadline.replace('Z', '+00:00'))
+            deadline_naive = deadline_dt.replace(tzinfo=None)
+            now = datetime.utcnow()
+            
+            if now > deadline_naive:
+                logger.info(f"Submission rejected: deadline passed. Now={now}, Deadline={deadline_naive}")
+                raise HTTPException(
+                    status_code=403,
+                    detail="Submission deadline has passed. No more submissions are accepted."
+                )
+        except HTTPException:
+            raise
+        except ValueError as e:
+            logger.error(f"Invalid deadline format: {deadline}, error: {e}")
+            raise HTTPException(status_code=500, detail="Invalid deadline configuration")
+            
     except HTTPException:
         raise
     except Exception as e:
-        logger.warning(f"Deadline check warning: {e}")
+        logger.error(f"Competition/deadline check failed: {type(e).__name__}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to verify submission deadline")
     
-    # Check if team already has a submission
+    # =========================================================
+    # STEP 5: Check if team already has a submission
+    # =========================================================
     try:
         existing = supabase.table("team_submissions") \
             .select("id") \
@@ -1907,10 +1959,12 @@ async def submit_team_solution(
     except HTTPException:
         raise
     except Exception as e:
-        # Table might not exist, continue
-        logger.warning(f"Submission check warning: {e}")
+        # Table might not exist - log but continue (first submission)
+        logger.warning(f"Submission check warning (may be first submission): {e}")
     
-    # Validate file extension
+    # =========================================================
+    # STEP 6: Validate file extension (before reading file)
+    # =========================================================
     file_ext = os.path.splitext(file.filename or 'submission.pdf')[1].lower()
     ALLOWED_EXTENSIONS = {'.pdf', '.xls', '.xlsx', '.zip'}
     
@@ -1922,7 +1976,9 @@ async def submit_team_solution(
     
     MAX_FILE_SIZE = 25 * 1024 * 1024  # 25MB
     
-    # Read file contents
+    # =========================================================
+    # STEP 7: Read and validate file contents
+    # =========================================================
     try:
         contents = await file.read()
     except Exception as e:
@@ -1938,7 +1994,9 @@ async def submit_team_solution(
             detail="File size exceeds the 25MB limit."
         )
     
-    # Upload to Supabase Storage
+    # =========================================================
+    # STEP 8: Upload to Supabase Storage
+    # =========================================================
     SUPABASE_URL = os.environ.get("SUPABASE_URL")
     SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
     
@@ -1975,7 +2033,9 @@ async def submit_team_solution(
         logger.error(f"Storage upload exception: {type(e).__name__}: {e}")
         raise HTTPException(status_code=500, detail="Failed to upload file to storage")
     
-    # Store submission record
+    # =========================================================
+    # STEP 9: Store submission record in database
+    # =========================================================
     now = datetime.utcnow().isoformat()
     submission_data = {
         "team_id": team_id,
