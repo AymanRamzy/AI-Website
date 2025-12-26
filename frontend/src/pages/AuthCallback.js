@@ -160,12 +160,13 @@ function AuthCallback() {
           setStatus('success');
           setMessage('Sign in successful!');
           
-          // Check profile_completed from error response if available
+          // MOBILE FIX: Use full page load for stability
+          await new Promise(resolve => setTimeout(resolve, 500));
           const userData = err.response?.data?.user;
           if (userData && !userData.profile_completed) {
-            navigate('/complete-profile', { replace: true });
+            window.location.href = '/complete-profile';
           } else {
-            navigate('/dashboard', { replace: true });
+            window.location.href = '/dashboard';
           }
           return;
         }
