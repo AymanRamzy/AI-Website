@@ -8,11 +8,11 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 // MOBILE FIX: Critical auth options for mobile browsers
+// NOTE: Do NOT use flowType: 'pkce' - causes "code verifier not found" on mobile
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    persistSession: true,        // Persist session in localStorage (mobile critical)
+    persistSession: true,        // Persist session in localStorage
     autoRefreshToken: true,      // Auto refresh tokens
-    detectSessionInUrl: true,    // Detect OAuth callback params in URL (mobile critical)
-    flowType: 'pkce'             // Use PKCE flow (more secure, better mobile support)
+    detectSessionInUrl: true     // Detect OAuth callback params in URL
   }
 });
