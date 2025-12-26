@@ -124,11 +124,18 @@ function AuthCallback() {
       } catch (err) {
         console.error('Auth callback error:', err);
         
-        // Handle 409 (user exists) - still redirect
+        // Handle 409 (user exists) - user already exists, redirect to appropriate page
         if (err.response?.status === 409) {
           setStatus('success');
           setMessage('Sign in successful!');
-          navigate('/dashboard', { replace: true });
+          
+          // Check profile_completed from error response if available
+          const userData = err.response?.data?.user;
+          if (userData && !userData.profile_completed) {
+            navigate('/complete-profile', { replace: true });
+          } else {
+            navigate('/dashboard', { replace: true });
+          }
           return;
         }
         
