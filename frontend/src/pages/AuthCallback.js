@@ -117,6 +117,9 @@ function AuthCallback() {
           setStatus('success');
           setMessage('Sign in successful!');
           
+          // MOBILE FIX: Small delay to ensure cookie is persisted before navigation
+          await new Promise(resolve => setTimeout(resolve, 300));
+          
           // Navigate immediately (user state already set)
           if (profile_completed) {
             navigate('/dashboard', { replace: true });
