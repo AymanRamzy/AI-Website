@@ -164,6 +164,17 @@ function Dashboard() {
             <Users className="w-5 h-5 inline-block mr-2" />
             My Team
           </button>
+          <button
+            onClick={() => setActiveTab('global-chat')}
+            className={`px-6 py-3 font-bold transition-colors border-b-2 ${
+              activeTab === 'global-chat'
+                ? 'border-modex-secondary text-modex-secondary'
+                : 'border-transparent text-gray-600 hover:text-modex-primary'
+            }`}
+          >
+            <MessageCircle className="w-5 h-5 inline-block mr-2" />
+            Global Chat
+          </button>
         </div>
 
         {/* Competitions Tab */}
