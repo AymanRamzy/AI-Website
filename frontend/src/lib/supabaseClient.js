@@ -7,4 +7,12 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error("Supabase ENV variables are missing");
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// MOBILE FIX: Critical auth options for mobile browsers
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: true,        // Persist session in localStorage (mobile critical)
+    autoRefreshToken: true,      // Auto refresh tokens
+    detectSessionInUrl: true,    // Detect OAuth callback params in URL (mobile critical)
+    flowType: 'pkce'             // Use PKCE flow (more secure, better mobile support)
+  }
+});
