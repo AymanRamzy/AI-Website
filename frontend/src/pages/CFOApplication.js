@@ -421,9 +421,10 @@ function CFOApplication() {
               <div className="space-y-2">
                 {[
                   { value: 'less_than_2', label: 'Less than 2 years' },
-                  { value: '2_to_5', label: '2-5 years' },
-                  { value: '5_to_10', label: '5-10 years' },
-                  { value: 'more_than_10', label: 'More than 10 years' }
+                  { value: '2_to_5', label: '2–5 years' },
+                  { value: '5_to_10', label: '5–10 years' },
+                  { value: '10_to_15', label: '10–15 years' },
+                  { value: 'more_than_15', label: '15+ years' }
                 ].map(opt => (
                   <RadioOption
                     key={opt.value}
