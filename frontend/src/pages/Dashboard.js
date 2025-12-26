@@ -337,6 +337,14 @@ function Dashboard() {
             )}
           </div>
         )}
+
+        {/* Global Chat Tab */}
+        {activeTab === 'global-chat' && (
+          <div>
+            <h2 className="text-2xl font-bold text-modex-primary mb-6">Global Chat</h2>
+            <GlobalChat />
+          </div>
+        )}
       </div>
     </div>
   );
