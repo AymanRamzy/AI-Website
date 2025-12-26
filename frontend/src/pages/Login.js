@@ -12,19 +12,22 @@ function Login() {
   const [successMessage, setSuccessMessage] = useState(location.state?.message || '');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const { login, user } = useAuth();
+  const { login, user, loading: authLoading, authInitialized } = useAuth();
   const navigate = useNavigate();
 
-  // If already logged in, redirect appropriately
+  // CRITICAL FIX: Only redirect AFTER auth is fully initialized
   useEffect(() => {
+    // Wait for auth to be initialized before checking user state
+    if (!authInitialized) return;
+    
     if (user) {
       if (user.profile_completed) {
-        navigate('/dashboard');
+        navigate('/dashboard', { replace: true });
       } else {
-        navigate('/complete-profile');
+        navigate('/complete-profile', { replace: true });
       }
     }
-  }, [user, navigate]);
+  }, [user, authInitialized, navigate]);
 
   // Clear location state after reading
   useEffect(() => {
