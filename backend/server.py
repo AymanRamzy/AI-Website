@@ -1,5 +1,7 @@
-from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
+
+
+from fastapi import FastAPI, APIRouter
 from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 import logging
@@ -28,23 +30,24 @@ from utils.rate_limiter import SimpleRateLimiter
 
 app = FastAPI(title="ModEX Platform")
 
-# OPTIONAL IMPROVEMENT: Add rate limiting middleware
-# (applies to auth endpoints only: login, register, upload-cv)
-app.add_middleware(SimpleRateLimiter)
-
-from fastapi.middleware.cors import CORSMiddleware
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://www.financialmodex.com",
         "https://financialmodex.com",
-        "http://localhost:3000"
+        "https://www.financialmodex.com",
+        "https://modex-uploader.preview.emergentagent.com",
+        "http://localhost:3000",
     ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# OPTIONAL IMPROVEMENT: Add rate limiting middleware
+# (applies to auth endpoints only: login, register, upload-cv)
+app.add_middleware(SimpleRateLimiter)
+
 
 
 app.mount("/socket.io", socket_app)
