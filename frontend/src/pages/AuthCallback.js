@@ -136,14 +136,14 @@ function AuthCallback() {
           setStatus('success');
           setMessage('Sign in successful!');
           
-          // MOBILE FIX: Small delay to ensure cookie is persisted before navigation
-          await new Promise(resolve => setTimeout(resolve, 300));
+          // MOBILE FIX: Longer delay to ensure state is persisted before navigation
+          await new Promise(resolve => setTimeout(resolve, 800));
           
-          // Navigate immediately (user state already set)
+          // Navigate based on profile completion
           if (profile_completed) {
-            navigate('/dashboard', { replace: true });
+            window.location.href = '/dashboard';  // Full page load for mobile stability
           } else {
-            navigate('/complete-profile', { replace: true });
+            window.location.href = '/complete-profile';  // Full page load for mobile stability
           }
           
         } else {
