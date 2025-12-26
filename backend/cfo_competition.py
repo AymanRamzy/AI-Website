@@ -226,12 +226,13 @@ async def login(user_credentials: UserLogin, response: Response):
         )
 
     # SECURITY P0-1: Set HttpOnly cookie for session token
+    # Cross-domain fix: samesite="none" required for cross-origin requests
     response.set_cookie(
         key="session_token",
         value=access_token,
         httponly=True,  # Prevents JavaScript access (XSS protection)
         secure=True,  # HTTPS only
-        samesite="lax",  # CSRF protection
+        samesite="none",  # Required for cross-domain cookie
         max_age=3600 * 24 * 7,  # 7 days
         path="/"
     )
@@ -350,13 +351,13 @@ async def google_callback(request: GoogleCallbackRequest, response: Response):
                     detail="Failed to create user profile"
                 )
     
-    # Set HttpOnly cookie for session
+    # Set HttpOnly cookie for session (cross-domain fix)
     response.set_cookie(
         key="session_token",
         value=access_token,
         httponly=True,
         secure=True,
-        samesite="lax",
+        samesite="none",  # Required for cross-domain cookie
         max_age=3600 * 24 * 7,  # 7 days
         path="/"
     )
