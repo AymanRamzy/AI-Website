@@ -16,7 +16,8 @@ class ExperienceYears(str, Enum):
     LESS_THAN_2 = "less_than_2"
     TWO_TO_FIVE = "2_to_5"
     FIVE_TO_TEN = "5_to_10"
-    MORE_THAN_10 = "more_than_10"
+    TEN_TO_FIFTEEN = "10_to_15"
+    MORE_THAN_15 = "more_than_15"
 
 class LeadershipExposure(str, Enum):
     NONE = "none"
