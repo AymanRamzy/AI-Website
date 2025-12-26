@@ -48,17 +48,26 @@ function AuthCallback() {
           if (sessionError) throw sessionError;
           session = data?.session;
         }
-        // Code-based flow (PKCE)
+        // Code-based flow (PKCE) - MOBILE CRITICAL
         else if (code) {
           setMessage('Exchanging authorization code...');
           const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
           if (exchangeError) throw exchangeError;
           session = data?.session;
         }
-        // Check existing session
+        // Check existing session (mobile may need retry)
         else {
+          // MOBILE FIX: Wait a moment for session to be detected
+          await new Promise(resolve => setTimeout(resolve, 500));
           const { data: sessionData } = await supabase.auth.getSession();
           session = sessionData?.session;
+          
+          // MOBILE FIX: If no session, try one more time after a delay
+          if (!session) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            const { data: retryData } = await supabase.auth.getSession();
+            session = retryData?.session;
+          }
         }
         
         if (!session) {
