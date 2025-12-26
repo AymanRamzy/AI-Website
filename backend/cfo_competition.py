@@ -692,28 +692,30 @@ async def upload_cv(
     from datetime import datetime, timedelta
     logger = logging.getLogger(__name__)
     
+    supabase = get_supabase_client()
+    
     # SECURITY FIX: Rate limiting - max 3 uploads per 5 minutes per user
     # Prevent abuse of storage bandwidth
-    supabase = get_supabase_client()
-    recent_uploads_count = supabase.rpc(
-        'count_recent_uploads',
-        {
-            'p_user_id': current_user.id,
-            'p_minutes': 5
-        }
-    ).execute()
-    
-    # If RPC doesn't exist, skip rate limit check (don't fail)
-    # Otherwise enforce limit
+    # Note: Skip rate limiting if RPC doesn't exist (non-blocking)
     try:
+        recent_uploads_count = supabase.rpc(
+            'count_recent_uploads',
+            {
+                'p_user_id': current_user.id,
+                'p_minutes': 5
+            }
+        ).execute()
+        
         if recent_uploads_count.data and recent_uploads_count.data > 3:
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail="Too many upload attempts. Please wait 5 minutes before trying again."
             )
+    except HTTPException:
+        raise
     except Exception as rpc_err:
-        # RPC might not exist, log and continue
-        logger.warning(f"Rate limit RPC check failed: {rpc_err}")
+        # RPC might not exist, log and continue without rate limiting
+        logger.warning(f"Rate limit RPC check skipped: {rpc_err}")
     
     # BOARD-APPROVED FIX: Create dedicated admin client for storage uploads
     # This ensures service_role key is used, bypassing RLS
