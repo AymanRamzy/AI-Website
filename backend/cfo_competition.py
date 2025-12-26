@@ -325,7 +325,7 @@ async def google_callback(request: GoogleCallbackRequest, response: Response):
             "auth_provider": "google",
             "created_at": now,
             "updated_at": now,
-            "profile_completed": False
+            "profile_completed": True  # Google users have profile completed (name/email from Google)
         }
         
         try:
