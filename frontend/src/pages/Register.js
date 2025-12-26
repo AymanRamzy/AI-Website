@@ -14,19 +14,21 @@ function Register() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const { register, user } = useAuth();
+  const { register, user, ready } = useAuth();
   const navigate = useNavigate();
 
-  // If already logged in, redirect appropriately
+  // MOBILE FIX: Only redirect AFTER ready === true
   useEffect(() => {
+    if (!ready) return;
+    
     if (user) {
       if (user.profile_completed) {
-        navigate('/dashboard');
+        navigate('/dashboard', { replace: true });
       } else {
-        navigate('/complete-profile');
+        navigate('/complete-profile', { replace: true });
       }
     }
-  }, [user, navigate]);
+  }, [user, ready, navigate]);
 
   const handleChange = (e) => {
     setFormData({
