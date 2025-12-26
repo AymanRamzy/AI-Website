@@ -363,9 +363,13 @@ async def google_callback(request: GoogleCallbackRequest, response: Response):
     
     logger.info(f"Google user signed in: {user_email}")
     
+    # For Google OAuth users, profile_completed should always be True
+    # (Google provides name/email automatically)
+    is_profile_completed = profile_data.get("profile_completed", True)
+    
     return {
         "success": True,
-        "profile_completed": profile_data.get("profile_completed", False),
+        "profile_completed": is_profile_completed,
         "user": {
             "id": profile_data["id"],
             "email": profile_data["email"],
