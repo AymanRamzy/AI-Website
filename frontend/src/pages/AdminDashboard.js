@@ -9,8 +9,9 @@ import { useAuth } from '../context/AuthContext';
 import { 
   Upload, FileText, Clock, Trash2, Download, 
   Calendar, AlertCircle, CheckCircle, Loader,
-  Settings, X
+  Settings, X, MessageCircle
 } from 'lucide-react';
+import AdminTeamChat from '../components/AdminTeamChat';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || '';
 
