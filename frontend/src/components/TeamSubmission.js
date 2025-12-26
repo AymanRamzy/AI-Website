@@ -117,12 +117,15 @@ function TeamSubmission({ teamId, competition, team }) {
     const mins = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
     
+    // Always show seconds
     if (days > 0) {
-      return `${days}d ${hours}h ${mins}m`;
+      return `${days}d ${hours}h ${mins}m ${secs}s`;
     } else if (hours > 0) {
       return `${hours}h ${mins}m ${secs}s`;
-    } else {
+    } else if (mins > 0) {
       return `${mins}m ${secs}s`;
+    } else {
+      return `${secs}s`;
     }
   };
 
