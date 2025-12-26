@@ -80,16 +80,95 @@ export const AuthProvider = ({ children }) => {
     return () => {
       axios.interceptors.response.eject(responseInterceptor);
     };
-  }, [authInitialized]);
+  }, [ready]);
 
   /**
-   * Load user session from backend
-   * Can be called on mount or after OAuth callback
-   * MOBILE FIX: Falls back to sessionStorage token if cookie fails
+   * MOBILE FIX: Single auth initialization with ready flag
+   * ready === true ONLY AFTER both session check AND profile fetch complete
+   */
+  useEffect(() => {
+    let mounted = true;
+
+    const initAuth = async () => {
+      setLoading(true);
+
+      try {
+        // Step 1: Check Supabase session first
+        const { data: { session } } = await supabase.auth.getSession();
+
+        if (!session) {
+          // No Supabase session - try cookie-based auth
+          try {
+            const res = await axios.get(`${API_URL}/api/cfo/auth/me`, {
+              timeout: 5000,
+              withCredentials: true
+            });
+            if (!mounted) return;
+            setUser({
+              ...res.data,
+              profile_completed: res.data.profile_completed ?? false
+            });
+          } catch {
+            // Also try sessionStorage token fallback for mobile
+            const fallbackToken = sessionStorage.getItem('modex_token');
+            if (fallbackToken) {
+              try {
+                const retryRes = await axios.get(`${API_URL}/api/cfo/auth/me`, {
+                  timeout: 5000,
+                  headers: { 'Authorization': `Bearer ${fallbackToken}` }
+                });
+                if (!mounted) return;
+                setUser({
+                  ...retryRes.data,
+                  profile_completed: retryRes.data.profile_completed ?? false
+                });
+              } catch {
+                sessionStorage.removeItem('modex_token');
+                if (!mounted) return;
+                setUser(null);
+              }
+            } else {
+              if (!mounted) return;
+              setUser(null);
+            }
+          }
+        } else {
+          // Has Supabase session - fetch profile
+          try {
+            const res = await axios.get(`${API_URL}/api/cfo/auth/me`, {
+              timeout: 5000,
+              withCredentials: true
+            });
+            if (!mounted) return;
+            setUser({
+              ...res.data,
+              profile_completed: res.data.profile_completed ?? false
+            });
+          } catch {
+            if (!mounted) return;
+            setUser(null);
+          }
+        }
+      } catch (e) {
+        console.error('Auth init error:', e);
+        if (!mounted) return;
+        setUser(null);
+      }
+
+      if (!mounted) return;
+      setReady(true);
+      setLoading(false);
+    };
+
+    initAuth();
+    return () => { mounted = false; };
+  }, []);
+
+  /**
+   * Load user - for manual refresh after OAuth
    */
   const loadUser = useCallback(async () => {
     try {
-      // First try with cookies
       const response = await axios.get(`${API_URL}/api/cfo/auth/me`, {
         timeout: 5000,
         withCredentials: true
