@@ -8,12 +8,14 @@ const API_URL = process.env.REACT_APP_BACKEND_URL || '';
  * TeamCase - Case Tab Component (READ-ONLY)
  * Fetches case files from backend with timer enforcement.
  * Shows countdown if case not yet released.
+ * Also shows submission deadline countdown when case is available.
  */
 function TeamCase({ teamId, competition }) {
   const [loading, setLoading] = useState(true);
   const [caseData, setCaseData] = useState(null);
   const [error, setError] = useState('');
   const [countdown, setCountdown] = useState(null);
+  const [deadlineCountdown, setDeadlineCountdown] = useState(null);
   const [previewFile, setPreviewFile] = useState(null);
 
   const loadCaseFiles = async () => {
@@ -29,6 +31,25 @@ function TeamCase({ teamId, competition }) {
       // If case not released, start countdown
       if (!response.data.case_released && response.data.time_until_release) {
         setCountdown(Math.floor(response.data.time_until_release));
+      } else {
+        setCountdown(null);
+      }
+      
+      // Calculate deadline countdown
+      const deadline = response.data.submission_deadline_at || competition?.submission_deadline_at;
+      if (deadline) {
+        try {
+          const deadlineDt = new Date(deadline);
+          const now = new Date();
+          if (now < deadlineDt) {
+            const diff = Math.floor((deadlineDt - now) / 1000);
+            setDeadlineCountdown(diff);
+          } else {
+            setDeadlineCountdown(0);
+          }
+        } catch (e) {
+          console.error('Invalid deadline format:', e);
+        }
       }
     } catch (err) {
       console.error('Failed to load case files:', err);
@@ -49,7 +70,7 @@ function TeamCase({ teamId, competition }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [teamId]);
 
-  // Countdown timer effect
+  // Countdown timer effect for case release
   useEffect(() => {
     if (countdown === null || countdown <= 0) return;
     
@@ -69,7 +90,25 @@ function TeamCase({ teamId, competition }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [countdown]);
 
+  // Countdown timer effect for submission deadline
+  useEffect(() => {
+    if (deadlineCountdown === null || deadlineCountdown <= 0) return;
+    
+    const timer = setInterval(() => {
+      setDeadlineCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    
+    return () => clearInterval(timer);
+  }, [deadlineCountdown]);
+
   const formatCountdown = (seconds) => {
+    if (seconds === null || seconds === undefined) return '';
     const days = Math.floor(seconds / 86400);
     const hours = Math.floor((seconds % 86400) / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
@@ -158,11 +197,47 @@ function TeamCase({ teamId, competition }) {
     );
   }
 
-  // No case files uploaded
+  // No case files uploaded yet (but case is released or no timer set)
   if (!caseData?.files || caseData.files.length === 0) {
+    const deadline = caseData?.submission_deadline_at || competition?.submission_deadline_at;
+    
     return (
-      <div className="bg-white rounded-xl border-2 border-gray-200 p-8">
-        <div className="text-center py-12">
+      <div className="bg-white rounded-xl border-2 border-gray-200 overflow-hidden">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-modex-secondary to-modex-primary text-white px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-bold text-lg">Competition Case</h3>
+              <p className="text-sm opacity-90">Read-only • Download available when uploaded</p>
+            </div>
+            <FileText className="w-8 h-8 opacity-80" />
+          </div>
+        </div>
+
+        {/* Deadline Timer - Always show if available */}
+        {deadline && (
+          <div className="bg-orange-50 border-b border-orange-200 px-6 py-3">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-orange-800">
+                <Clock className="w-4 h-4 inline-block mr-2" />
+                <strong>Submission Deadline:</strong>{' '}
+                {new Date(deadline).toLocaleString()}
+              </p>
+              {deadlineCountdown !== null && deadlineCountdown > 0 && (
+                <span className="text-sm font-mono font-bold text-orange-700 bg-orange-100 px-3 py-1 rounded">
+                  {formatCountdown(deadlineCountdown)} remaining
+                </span>
+              )}
+              {deadlineCountdown === 0 && (
+                <span className="text-sm font-bold text-red-700 bg-red-100 px-3 py-1 rounded">
+                  CLOSED
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
+        <div className="p-8 text-center">
           <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
           <h3 className="text-xl font-bold text-gray-700 mb-2">No Case Files Available</h3>
           <p className="text-gray-500 max-w-md mx-auto">
@@ -174,6 +249,7 @@ function TeamCase({ teamId, competition }) {
     );
   }
 
+  // Case files are available
   return (
     <div className="bg-white rounded-xl border-2 border-gray-200 overflow-hidden">
       {/* Header */}
@@ -189,14 +265,26 @@ function TeamCase({ teamId, competition }) {
         </div>
       </div>
 
-      {/* Deadline Info */}
-      {caseData.submission_deadline_at && (
+      {/* Deadline Info - Always show */}
+      {(caseData.submission_deadline_at || competition?.submission_deadline_at) && (
         <div className="bg-orange-50 border-b border-orange-200 px-6 py-3">
-          <p className="text-sm text-orange-800">
-            <Clock className="w-4 h-4 inline-block mr-2" />
-            <strong>Submission Deadline:</strong>{' '}
-            {new Date(caseData.submission_deadline_at).toLocaleString()}
-          </p>
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-orange-800">
+              <Clock className="w-4 h-4 inline-block mr-2" />
+              <strong>Submission Deadline:</strong>{' '}
+              {new Date(caseData.submission_deadline_at || competition?.submission_deadline_at).toLocaleString()}
+            </p>
+            {deadlineCountdown !== null && deadlineCountdown > 0 && (
+              <span className="text-sm font-mono font-bold text-orange-700 bg-orange-100 px-3 py-1 rounded">
+                {formatCountdown(deadlineCountdown)} remaining
+              </span>
+            )}
+            {deadlineCountdown === 0 && (
+              <span className="text-sm font-bold text-red-700 bg-red-100 px-3 py-1 rounded">
+                CLOSED
+              </span>
+            )}
+          </div>
         </div>
       )}
 
