@@ -40,11 +40,13 @@ export const AuthProvider = ({ children }) => {
     
     // OPTIONAL IMPROVEMENT: Global 401 Interceptor (Smart - Only for Protected Routes)
     // Does NOT redirect on initial auth check (/auth/me)
+    // MOBILE FIX: Only trigger redirect AFTER authInitialized is true
     const responseInterceptor = axios.interceptors.response.use(
       (response) => response,
       (error) => {
         // Handle 401 Unauthorized (expired or invalid session)
-        if (error.response?.status === 401) {
+        // MOBILE FIX: Gate by authInitialized to prevent premature redirects
+        if (error.response?.status === 401 && authInitialized) {
           const requestUrl = error.config?.url || '';
           
           // Skip redirect for initial auth check (this is expected for visitors)
@@ -52,8 +54,11 @@ export const AuthProvider = ({ children }) => {
             return Promise.reject(error);
           }
           
-          // Skip redirect for google-callback (handled separately)
-          if (requestUrl.includes('/auth/google-callback')) {
+          // Skip redirect for OAuth callback routes (handled separately)
+          if (
+            requestUrl.includes('/auth/callback') ||
+            requestUrl.includes('/auth/google-callback')
+          ) {
             return Promise.reject(error);
           }
           
@@ -82,7 +87,7 @@ export const AuthProvider = ({ children }) => {
     return () => {
       axios.interceptors.response.eject(responseInterceptor);
     };
-  }, []);
+  }, [authInitialized]);
 
   /**
    * Load user session from backend
