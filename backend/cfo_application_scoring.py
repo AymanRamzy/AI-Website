@@ -167,7 +167,8 @@ def score_step1(step1: CFOApplicationStep1) -> Dict:
         ExperienceYears.LESS_THAN_2: 5,
         ExperienceYears.TWO_TO_FIVE: 15,
         ExperienceYears.FIVE_TO_TEN: 25,
-        ExperienceYears.MORE_THAN_10: 30
+        ExperienceYears.TEN_TO_FIFTEEN: 30,
+        ExperienceYears.MORE_THAN_15: 35
     }
     score += exp_scores.get(step1.experience_years, 0)
     
