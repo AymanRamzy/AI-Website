@@ -38,7 +38,7 @@ function AuthCallback() {
         
         let session = null;
         
-        // Token-based flow
+        // Token-based flow (implicit grant - hash fragment)
         if (accessToken && refreshToken) {
           setMessage('Processing Google authentication...');
           const { data, error: sessionError } = await supabase.auth.setSession({
@@ -48,21 +48,34 @@ function AuthCallback() {
           if (sessionError) throw sessionError;
           session = data?.session;
         }
-        // Code-based flow (PKCE) - MOBILE CRITICAL
+        // Code-based flow - try exchange, fallback to getSession if PKCE fails
         else if (code) {
           setMessage('Exchanging authorization code...');
-          const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-          if (exchangeError) throw exchangeError;
-          session = data?.session;
+          try {
+            const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+            if (exchangeError) {
+              // PKCE verifier missing - fallback to getSession
+              console.warn('Code exchange failed, trying getSession:', exchangeError.message);
+              const { data: sessionData } = await supabase.auth.getSession();
+              session = sessionData?.session;
+            } else {
+              session = data?.session;
+            }
+          } catch (e) {
+            // Fallback to getSession on any error
+            console.warn('Code exchange exception, trying getSession:', e.message);
+            const { data: sessionData } = await supabase.auth.getSession();
+            session = sessionData?.session;
+          }
         }
-        // Check existing session (mobile may need retry)
+        // No code or tokens - check existing session
         else {
-          // MOBILE FIX: Wait a moment for session to be detected
+          // Wait a moment for session to be detected on mobile
           await new Promise(resolve => setTimeout(resolve, 500));
           const { data: sessionData } = await supabase.auth.getSession();
           session = sessionData?.session;
           
-          // MOBILE FIX: If no session, try one more time after a delay
+          // If no session, retry once after delay
           if (!session) {
             await new Promise(resolve => setTimeout(resolve, 1000));
             const { data: retryData } = await supabase.auth.getSession();
