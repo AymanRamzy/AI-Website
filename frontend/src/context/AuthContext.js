@@ -212,27 +212,6 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   /**
-   * SECURITY: Load user session from backend on mount
-   * - Backend validates HttpOnly cookie
-   * - Frontend never touches tokens
-   * - User state derived from /auth/me response
-   * 
-   * MOBILE FIX: Set authInitialized BEFORE loading=false
-   * This removes the "auth vacuum frame" on mobile
-   */
-  useEffect(() => {
-    const initAuth = async () => {
-      setLoading(true);
-      await loadUser();
-      // MOBILE FIX: Set authInitialized first to prevent vacuum frame
-      setAuthInitialized(true);
-      setLoading(false);
-    };
-    
-    initAuth();
-  }, [loadUser]);
-
-  /**
    * Refresh user data from backend
    * Used after OAuth callback to sync state
    */
