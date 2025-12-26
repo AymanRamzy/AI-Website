@@ -273,25 +273,31 @@ function TeamCase({ teamId, competition }) {
         </div>
       </div>
 
-      {/* Deadline Info - Always show */}
-      {(caseData.submission_deadline_at || competition?.submission_deadline_at) && (
-        <div className="bg-orange-50 border-b border-orange-200 px-6 py-3">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-orange-800">
-              <Clock className="w-4 h-4 inline-block mr-2" />
-              <strong>Submission Deadline:</strong>{' '}
-              {new Date(caseData.submission_deadline_at || competition?.submission_deadline_at).toLocaleString()}
-            </p>
-            {deadlineCountdown !== null && deadlineCountdown > 0 && (
-              <span className="text-sm font-mono font-bold text-orange-700 bg-orange-100 px-3 py-1 rounded">
-                {formatCountdown(deadlineCountdown)} remaining
-              </span>
-            )}
-            {deadlineCountdown === 0 && (
-              <span className="text-sm font-bold text-red-700 bg-red-100 px-3 py-1 rounded">
-                CLOSED
-              </span>
-            )}
+      {/* Big Deadline Countdown - Same style as case release countdown */}
+      {(caseData.submission_deadline_at || competition?.submission_deadline_at) && deadlineCountdown !== null && deadlineCountdown > 0 && (
+        <div className="p-6 text-center bg-orange-50 border-b border-orange-200">
+          <div className="flex items-center justify-center mb-3">
+            <Clock className="w-8 h-8 text-orange-500 mr-2" />
+            <h4 className="text-lg font-bold text-gray-800">Submission Deadline Countdown</h4>
+          </div>
+          
+          <div className="bg-white rounded-xl py-5 px-8 inline-block shadow-sm border border-orange-200">
+            <span className="text-3xl font-mono font-bold text-orange-600">
+              {formatCountdown(deadlineCountdown)}
+            </span>
+          </div>
+          
+          <p className="text-sm text-gray-500 mt-3">
+            Deadline: {new Date(caseData.submission_deadline_at || competition?.submission_deadline_at).toLocaleString()}
+          </p>
+        </div>
+      )}
+
+      {/* Deadline passed */}
+      {(caseData.submission_deadline_at || competition?.submission_deadline_at) && deadlineCountdown === 0 && (
+        <div className="p-4 text-center bg-red-50 border-b border-red-200">
+          <div className="bg-red-100 rounded-xl py-3 px-6 inline-block">
+            <span className="text-xl font-bold text-red-600">SUBMISSION CLOSED</span>
           </div>
         </div>
       )}
