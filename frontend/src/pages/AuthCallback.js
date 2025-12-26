@@ -117,7 +117,13 @@ function AuthCallback() {
             { withCredentials: true, timeout: 10000 }
           );
           
-          const { profile_completed, user: userData } = response.data;
+          const { profile_completed, user: userData, access_token: backendToken } = response.data;
+          
+          // MOBILE FIX: Store token in sessionStorage as fallback for mobile browsers
+          // that block third-party cookies
+          if (backendToken) {
+            sessionStorage.setItem('modex_token', backendToken);
+          }
           
           // CRITICAL: Set user directly in AuthContext to prevent re-fetch
           if (userData) {
