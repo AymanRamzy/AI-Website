@@ -214,26 +214,34 @@ function TeamCase({ teamId, competition }) {
           </div>
         </div>
 
-        {/* Deadline Timer - Always show if available */}
-        {deadline && (
-          <div className="bg-orange-50 border-b border-orange-200 px-6 py-3">
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-orange-800">
-                <Clock className="w-4 h-4 inline-block mr-2" />
-                <strong>Submission Deadline:</strong>{' '}
-                {new Date(deadline).toLocaleString()}
-              </p>
-              {deadlineCountdown !== null && deadlineCountdown > 0 && (
-                <span className="text-sm font-mono font-bold text-orange-700 bg-orange-100 px-3 py-1 rounded">
-                  {formatCountdown(deadlineCountdown)} remaining
-                </span>
-              )}
-              {deadlineCountdown === 0 && (
-                <span className="text-sm font-bold text-red-700 bg-red-100 px-3 py-1 rounded">
-                  CLOSED
-                </span>
-              )}
+        {/* Big Deadline Countdown - Same style as case release countdown */}
+        {deadline && deadlineCountdown !== null && deadlineCountdown > 0 && (
+          <div className="p-8 text-center bg-orange-50 border-b border-orange-200">
+            <Clock className="w-12 h-12 text-orange-500 mx-auto mb-3" />
+            <h4 className="text-lg font-bold text-gray-800 mb-2">Submission Deadline Countdown</h4>
+            <p className="text-gray-600 mb-4">Submit your solution before time runs out:</p>
+            
+            <div className="bg-white rounded-xl py-6 px-8 inline-block shadow-sm border border-orange-200">
+              <span className="text-4xl font-mono font-bold text-orange-600">
+                {formatCountdown(deadlineCountdown)}
+              </span>
             </div>
+            
+            <p className="text-sm text-gray-500 mt-4">
+              Deadline: {new Date(deadline).toLocaleString()}
+            </p>
+          </div>
+        )}
+
+        {/* Deadline passed */}
+        {deadline && deadlineCountdown === 0 && (
+          <div className="p-6 text-center bg-red-50 border-b border-red-200">
+            <div className="bg-red-100 rounded-xl py-4 px-8 inline-block">
+              <span className="text-2xl font-bold text-red-600">SUBMISSION CLOSED</span>
+            </div>
+            <p className="text-sm text-red-600 mt-2">
+              Deadline was: {new Date(deadline).toLocaleString()}
+            </p>
           </div>
         )}
 
