@@ -54,6 +54,7 @@ function AdminTeamChat() {
 
   useEffect(() => {
     fetchTeams();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Load team chat when selected
