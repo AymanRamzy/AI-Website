@@ -371,6 +371,7 @@ async def google_callback(request: GoogleCallbackRequest, response: Response):
     return {
         "success": True,
         "profile_completed": is_profile_completed,
+        "access_token": access_token,  # MOBILE FIX: Return token for mobile fallback
         "user": {
             "id": profile_data["id"],
             "email": profile_data["email"],
