@@ -67,6 +67,35 @@ function Register() {
     setLoading(false);
   };
 
+  /**
+   * GOOGLE SIGN-UP
+   * Uses Supabase OAuth - redirects to Google, then back to /auth/callback
+   */
+  const handleGoogleSignUp = async () => {
+    setError('');
+    setGoogleLoading(true);
+    
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`
+        }
+      });
+      
+      if (error) {
+        console.error('Google sign-up error:', error);
+        setError(error.message || 'Failed to initiate Google sign-up');
+        setGoogleLoading(false);
+      }
+      // If successful, user will be redirected to Google
+    } catch (err) {
+      console.error('Google sign-up exception:', err);
+      setError('Failed to connect to Google. Please try again.');
+      setGoogleLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-modex-primary via-modex-secondary to-modex-accent flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full">
