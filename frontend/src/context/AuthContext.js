@@ -359,7 +359,8 @@ export const AuthProvider = ({ children }) => {
       register, 
       logout, 
       loading, 
-      authInitialized,
+      ready,  // MOBILE FIX: Use ready instead of authInitialized
+      authInitialized: ready,  // Backward compatibility
       refreshUser,
       setUserDirectly
     }}>
