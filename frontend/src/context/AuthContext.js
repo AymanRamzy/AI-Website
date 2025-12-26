@@ -17,6 +17,7 @@
  */
 import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import axios from 'axios';
+import { supabase } from '../lib/supabaseClient';
 
 const AuthContext = createContext();
 
@@ -25,28 +26,20 @@ const API_URL = process.env.REACT_APP_BACKEND_URL || '';
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [authInitialized, setAuthInitialized] = useState(false);
+  const [ready, setReady] = useState(false);  // MOBILE FIX: Single authoritative ready flag
 
   /**
    * SECURITY: Configure axios to use cookies (withCredentials)
-   * This allows HttpOnly cookies to be sent automatically with requests
    */
   useEffect(() => {
-    // Enable credentials (cookies) for all requests to the backend
     axios.defaults.withCredentials = true;
-    
-    // Remove any Authorization header (we use cookies now)
     delete axios.defaults.headers.common['Authorization'];
     
-    // OPTIONAL IMPROVEMENT: Global 401 Interceptor (Smart - Only for Protected Routes)
-    // Does NOT redirect on initial auth check (/auth/me)
-    // MOBILE FIX: Only trigger redirect AFTER authInitialized is true
+    // Global 401 Interceptor - ONLY after ready
     const responseInterceptor = axios.interceptors.response.use(
       (response) => response,
       (error) => {
-        // Handle 401 Unauthorized (expired or invalid session)
-        // MOBILE FIX: Gate by authInitialized to prevent premature redirects
-        if (error.response?.status === 401 && authInitialized) {
+        if (error.response?.status === 401 && ready) {
           const requestUrl = error.config?.url || '';
           
           // Skip redirect for initial auth check (this is expected for visitors)
