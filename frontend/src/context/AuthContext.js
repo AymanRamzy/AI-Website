@@ -122,13 +122,17 @@ export const AuthProvider = ({ children }) => {
    * - Backend validates HttpOnly cookie
    * - Frontend never touches tokens
    * - User state derived from /auth/me response
+   * 
+   * MOBILE FIX: Set authInitialized BEFORE loading=false
+   * This removes the "auth vacuum frame" on mobile
    */
   useEffect(() => {
     const initAuth = async () => {
       setLoading(true);
       await loadUser();
-      setLoading(false);
+      // MOBILE FIX: Set authInitialized first to prevent vacuum frame
       setAuthInitialized(true);
+      setLoading(false);
     };
     
     initAuth();
