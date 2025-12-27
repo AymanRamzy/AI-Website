@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
@@ -8,98 +7,74 @@ import { Loader, CheckCircle, AlertCircle } from 'lucide-react';
 const API_URL = process.env.REACT_APP_BACKEND_URL || '';
 
 /**
- * AuthCallback - Handles OAuth and email confirmation redirects
+ * AuthCallback - MOBILE-SAFE OAuth Handler
  * 
- * FIX: Uses setUserDirectly to immediately update auth state after
- * backend cookie is set, preventing double-login issue.
+ * IMPORTANT: This component does NOT manually parse tokens or call setSession().
+ * Supabase handles OAuth automatically via PKCE on mobile.
+ * We ONLY call getSession() and sync with backend.
  */
 function AuthCallback() {
-  const navigate = useNavigate();
   const { setUserDirectly } = useAuth();
   const [status, setStatus] = useState('processing');
   const [error, setError] = useState('');
   const [message, setMessage] = useState('Verifying your session...');
 
   useEffect(() => {
+    let mounted = true;
+
     const handleAuthCallback = async () => {
       try {
-        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        // Check for OAuth error in URL
         const urlParams = new URLSearchParams(window.location.search);
-        
-        const accessToken = hashParams.get('access_token');
-        const refreshToken = hashParams.get('refresh_token');
-        const code = urlParams.get('code');
         const errorParam = urlParams.get('error');
         const errorDescription = urlParams.get('error_description');
         
         if (errorParam) {
           throw new Error(errorDescription || errorParam);
         }
-        
-        let session = null;
-        
-        // Token-based flow (implicit grant - hash fragment)
-        if (accessToken && refreshToken) {
-          setMessage('Processing Google authentication...');
-          const { data, error: sessionError } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken
-          });
-          if (sessionError) throw sessionError;
-          session = data?.session;
-        }
-        // Code-based flow - try exchange, fallback to getSession if PKCE fails
-        else if (code) {
-          setMessage('Exchanging authorization code...');
-          try {
-            const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-            if (exchangeError) {
-              // PKCE verifier missing - fallback to getSession
-              console.warn('Code exchange failed, trying getSession:', exchangeError.message);
-              const { data: sessionData } = await supabase.auth.getSession();
-              session = sessionData?.session;
-            } else {
-              session = data?.session;
-            }
-          } catch (e) {
-            // Fallback to getSession on any error
-            console.warn('Code exchange exception, trying getSession:', e.message);
-            const { data: sessionData } = await supabase.auth.getSession();
-            session = sessionData?.session;
-          }
-        }
-        // No code or tokens - check existing session
-        else {
-          // Wait a moment for session to be detected on mobile
-          await new Promise(resolve => setTimeout(resolve, 500));
-          const { data: sessionData } = await supabase.auth.getSession();
-          session = sessionData?.session;
-          
-          // If no session, retry once after delay
-          if (!session) {
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            const { data: retryData } = await supabase.auth.getSession();
-            session = retryData?.session;
-          }
-        }
-        
+
+        // MOBILE FIX: Wait for Supabase to complete OAuth automatically
+        // On mobile, PKCE flow completes before this component mounts
+        await new Promise(resolve => setTimeout(resolve, 400));
+
+        // ONLY ask Supabase: "Do you have a session?"
+        // Do NOT parse tokens, do NOT call setSession(), do NOT call exchangeCodeForSession()
+        const { data: sessionData } = await supabase.auth.getSession();
+        let session = sessionData?.session;
+
+        // If no session on first try, wait and retry once (mobile cookie delay)
         if (!session) {
-          const type = hashParams.get('type') || urlParams.get('type');
+          await new Promise(resolve => setTimeout(resolve, 600));
+          const { data: retryData } = await supabase.auth.getSession();
+          session = retryData?.session;
+        }
+
+        if (!mounted) return;
+
+        // No session found
+        if (!session) {
+          // Check if this is an email verification flow
+          const type = urlParams.get('type');
           if (type === 'signup' || type === 'email_change' || type === 'recovery') {
             setStatus('success');
             setMessage('Email verified successfully!');
-            setTimeout(() => navigate('/signin?confirmed=true', { replace: true }), 1500);
+            setTimeout(() => {
+              window.location.href = '/signin?confirmed=true';
+            }, 1500);
             return;
           }
           throw new Error('Could not establish session. Please try signing in again.');
         }
-        
+
+        // Determine if this is OAuth (Google) or email
         const provider = session.user?.app_metadata?.provider;
         const isOAuth = provider && provider !== 'email';
-        
+
         if (isOAuth) {
+          if (!mounted) return;
           setMessage('Completing Google sign-in...');
-          
+
+          // Call backend to create/sync user profile and set session cookie
           const response = await axios.post(
             `${API_URL}/api/cfo/auth/google-callback`,
             {
@@ -116,53 +91,58 @@ function AuthCallback() {
             },
             { withCredentials: true, timeout: 10000 }
           );
-          
+
+          if (!mounted) return;
+
           const { profile_completed, user: userData, access_token: backendToken } = response.data;
-          
-          // MOBILE FIX: Store token in sessionStorage as fallback for mobile browsers
-          // that block third-party cookies
+
+          // Store token in sessionStorage as fallback for mobile (third-party cookie blocking)
           if (backendToken) {
             sessionStorage.setItem('modex_token', backendToken);
           }
-          
-          // CRITICAL: Set user directly in AuthContext to prevent re-fetch
+
+          // Set user directly in AuthContext (no re-fetch needed)
           if (userData) {
             setUserDirectly({
               ...userData,
               profile_completed: profile_completed || false
             });
           }
-          
+
           setStatus('success');
           setMessage('Sign in successful!');
+
+          // MOBILE FIX: Delay then FULL PAGE LOAD (not SPA navigation)
+          await new Promise(resolve => setTimeout(resolve, 500));
           
-          // MOBILE FIX: Longer delay to ensure state is persisted before navigation
-          await new Promise(resolve => setTimeout(resolve, 800));
-          
-          // Navigate based on profile completion
           if (profile_completed) {
-            window.location.href = '/dashboard';  // Full page load for mobile stability
+            window.location.href = '/dashboard';
           } else {
-            window.location.href = '/complete-profile';  // Full page load for mobile stability
+            window.location.href = '/complete-profile';
           }
-          
+
         } else {
+          // Email verification flow
           setStatus('success');
           setMessage('Email verified successfully!');
-          setTimeout(() => navigate('/signin?confirmed=true', { replace: true }), 1500);
+          setTimeout(() => {
+            window.location.href = '/signin?confirmed=true';
+          }, 1500);
         }
-        
+
       } catch (err) {
         console.error('Auth callback error:', err);
-        
-        // Handle 409 (user exists) - user already exists, redirect to appropriate page
+
+        if (!mounted) return;
+
+        // Handle 409 (user already exists) - still a success case
         if (err.response?.status === 409) {
           setStatus('success');
           setMessage('Sign in successful!');
           
-          // MOBILE FIX: Use full page load for stability
-          await new Promise(resolve => setTimeout(resolve, 500));
+          await new Promise(resolve => setTimeout(resolve, 400));
           const userData = err.response?.data?.user;
+          
           if (userData && !userData.profile_completed) {
             window.location.href = '/complete-profile';
           } else {
@@ -170,14 +150,16 @@ function AuthCallback() {
           }
           return;
         }
-        
+
         setStatus('error');
         setError(err.message || 'Authentication failed. Please try again.');
       }
     };
 
     handleAuthCallback();
-  }, [navigate, setUserDirectly]);
+
+    return () => { mounted = false; };
+  }, [setUserDirectly]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-modex-primary via-modex-secondary to-modex-accent flex items-center justify-center py-12 px-4">
@@ -207,7 +189,7 @@ function AuthCallback() {
               <p className="text-red-600 text-lg font-bold mb-2">Authentication Failed</p>
               <p className="text-gray-600 mb-6">{error}</p>
               <button
-                onClick={() => navigate('/signin')}
+                onClick={() => window.location.href = '/signin'}
                 className="w-full bg-modex-secondary text-white px-6 py-3 rounded-lg font-bold hover:bg-modex-primary transition-colors"
               >
                 Go to Sign In
