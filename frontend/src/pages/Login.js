@@ -76,11 +76,11 @@ function Login() {
     
     try {
       const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`
-        }
-      });
+  provider: 'google',
+  options: {
+    redirectTo: 'https://financialmodex.com/auth/callback'
+  }
+});
       
       if (error) {
         console.error('Google sign-in error:', error);

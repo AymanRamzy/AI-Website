@@ -34,7 +34,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://financialmodex.com",
-        "https://www.financialmodex.com",
+        "https://financialmodex.com",
         "https://modex-uploader.preview.emergentagent.com",
         "http://localhost:3000",
     ],
