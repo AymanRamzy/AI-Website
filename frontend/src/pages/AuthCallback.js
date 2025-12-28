@@ -7,9 +7,7 @@ import { Loader, CheckCircle, AlertCircle } from 'lucide-react';
 const API_URL = process.env.REACT_APP_BACKEND_URL || '';
 
 /**
- * AuthCallback - MINIMAL MOBILE-SAFE OAuth Handler
- * 
- * RULE: Only call getSession() - Supabase handles OAuth automatically
+ * AuthCallback - MOBILE-SAFE OAuth Handler
  */
 function AuthCallback() {
   const { setUserDirectly } = useAuth();
@@ -20,25 +18,47 @@ function AuthCallback() {
   useEffect(() => {
     const handleAuthCallback = async () => {
       try {
-        // Check for error in URL
-        const errorParam = new URLSearchParams(window.location.search).get('error');
+        const urlParams = new URLSearchParams(window.location.search);
+        const code = urlParams.get('code');
+        const errorParam = urlParams.get('error');
+        
         if (errorParam) {
           throw new Error(errorParam);
         }
 
-        // Wait for Supabase PKCE to complete
-        await new Promise(r => setTimeout(r, 400));
+        let session = null;
 
-        // ONLY getSession - nothing else
-        const { data } = await supabase.auth.getSession();
-        const session = data?.session;
-
-        if (!session) {
-          window.location.href = '/signin';
-          return;
+        // PKCE flow: exchange code for session (REQUIRED on mobile)
+        if (code) {
+          setMessage('Completing authentication...');
+          const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+          if (exchangeError) {
+            console.error('Code exchange error:', exchangeError);
+            // Don't throw - try getSession as fallback
+          } else {
+            session = data?.session;
+          }
         }
 
-        // OAuth flow - sync with backend
+        // If no session from code exchange, try getSession
+        if (!session) {
+          await new Promise(r => setTimeout(r, 500));
+          const { data } = await supabase.auth.getSession();
+          session = data?.session;
+        }
+
+        if (!session) {
+          // Last resort: wait longer and try again
+          await new Promise(r => setTimeout(r, 1000));
+          const { data } = await supabase.auth.getSession();
+          session = data?.session;
+        }
+
+        if (!session) {
+          throw new Error('No session found. Please try again.');
+        }
+
+        // Sync with backend
         setMessage('Completing sign-in...');
         
         const response = await axios.post(
@@ -60,10 +80,8 @@ function AuthCallback() {
 
         const { profile_completed, user: userData, access_token: token } = response.data;
 
-        // Store token for mobile fallback
         if (token) sessionStorage.setItem('modex_token', token);
 
-        // Set user directly
         if (userData) {
           setUserDirectly({ ...userData, profile_completed: profile_completed || false });
         }
@@ -71,12 +89,12 @@ function AuthCallback() {
         setStatus('success');
         setMessage('Success!');
 
-        // Full page redirect
         await new Promise(r => setTimeout(r, 300));
         window.location.href = profile_completed ? '/dashboard' : '/complete-profile';
 
       } catch (err) {
-        // 409 = user exists, still success
+        console.error('Auth error:', err);
+        
         if (err.response?.status === 409) {
           const userData = err.response?.data?.user;
           window.location.href = userData?.profile_completed ? '/dashboard' : '/complete-profile';
