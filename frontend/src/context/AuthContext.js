@@ -29,11 +29,22 @@ export const AuthProvider = ({ children }) => {
   const [ready, setReady] = useState(false);  // MOBILE FIX: Single authoritative ready flag
 
   /**
-   * SECURITY: Configure axios to use cookies (withCredentials)
+   * SECURITY: Configure axios with mobile token fallback
    */
   useEffect(() => {
     axios.defaults.withCredentials = true;
-    delete axios.defaults.headers.common['Authorization'];
+    
+    // MOBILE FIX: Request interceptor to add token from sessionStorage
+    const requestInterceptor = axios.interceptors.request.use(
+      (config) => {
+        const token = sessionStorage.getItem('modex_token');
+        if (token && !config.headers['Authorization']) {
+          config.headers['Authorization'] = `Bearer ${token}`;
+        }
+        return config;
+      },
+      (error) => Promise.reject(error)
+    );
     
     // Global 401 Interceptor - ONLY after ready
     const responseInterceptor = axios.interceptors.response.use(
