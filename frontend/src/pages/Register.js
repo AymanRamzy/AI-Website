@@ -79,11 +79,12 @@ function Register() {
     
     try {
       const { error } = await supabase.auth.signInWithOAuth({
-  provider: 'google',
-  options: {
-    redirectTo: 'https://financialmodex.com/auth/callback'
-  }
-});
+        provider: 'google',
+        options: {
+          // MOBILE FIX: Use current origin to match domain exactly
+          redirectTo: `${window.location.origin}/auth/callback`
+        }
+      });
       
       if (error) {
         console.error('Google sign-up error:', error);
