@@ -145,8 +145,28 @@ export const AuthProvider = ({ children }) => {
               profile_completed: res.data.profile_completed ?? false
             });
           } catch {
-            if (!mounted) return;
-            setUser(null);
+            // MOBILE FIX: Cookie might fail on mobile, try sessionStorage token
+            const fallbackToken = sessionStorage.getItem('modex_token');
+            if (fallbackToken) {
+              try {
+                const retryRes = await axios.get(`${API_URL}/api/cfo/auth/me`, {
+                  timeout: 5000,
+                  headers: { 'Authorization': `Bearer ${fallbackToken}` }
+                });
+                if (!mounted) return;
+                setUser({
+                  ...retryRes.data,
+                  profile_completed: retryRes.data.profile_completed ?? false
+                });
+              } catch {
+                sessionStorage.removeItem('modex_token');
+                if (!mounted) return;
+                setUser(null);
+              }
+            } else {
+              if (!mounted) return;
+              setUser(null);
+            }
           }
         }
       } catch (e) {
