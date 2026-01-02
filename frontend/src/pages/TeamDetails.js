@@ -535,6 +535,20 @@ function TeamDetails() {
               />
             </div>
           )}
+
+          {/* Appeals Tab */}
+          {activeTab === 'appeals' && (
+            <div>
+              <h2 className="text-xl font-bold text-modex-primary mb-6 flex items-center">
+                <Scale className="w-6 h-6 mr-2" />
+                Score Appeals
+              </h2>
+              <TeamAppealsView 
+                teamId={teamId} 
+                competitionId={competition?.id} 
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>
