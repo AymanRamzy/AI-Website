@@ -761,6 +761,45 @@ function AdminDashboard() {
           <AdminTeamChat />
         )}
 
+        {/* Appeals Tab */}
+        {activeTab === 'appeals' && (
+          <div className="space-y-6">
+            {/* Competition Selector for Appeals */}
+            <div className="bg-gray-800 rounded-lg p-6">
+              <h3 className="text-lg font-medium text-white mb-4 flex items-center">
+                <Scale className="w-5 h-5 mr-2 text-orange-400" />
+                Select Competition to View Appeals
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {competitions.map(comp => (
+                  <button
+                    key={comp.id}
+                    onClick={() => setSelectedCompetition(comp)}
+                    className={`text-left px-4 py-3 rounded-lg border-2 transition-all ${
+                      selectedCompetition?.id === comp.id
+                        ? 'border-orange-500 bg-orange-900/30'
+                        : 'border-gray-600 hover:border-orange-500 bg-gray-700/50'
+                    }`}
+                  >
+                    <div className="font-medium text-white">{comp.title}</div>
+                    <div className="text-sm text-gray-400">
+                      Level {comp.current_level || 1} • {comp.status}
+                    </div>
+                  </button>
+                ))}
+              </div>
+              {competitions.length === 0 && (
+                <p className="text-gray-400 text-center py-4">No competitions found.</p>
+              )}
+            </div>
+
+            {/* Appeals Panel */}
+            {selectedCompetition && (
+              <AdminAppealsPanel competitionId={selectedCompetition.id} />
+            )}
+          </div>
+        )}
+
         {/* Team Observer Tab */}
         {activeTab === 'observer' && (
           <div className="space-y-6">
