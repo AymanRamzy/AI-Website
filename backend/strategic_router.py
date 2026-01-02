@@ -439,7 +439,7 @@ async def update_team_settings(
     if not update_data:
         raise HTTPException(status_code=400, detail="No valid settings to update")
     
-    result = supabase.table("teams")\
+    supabase.table("teams")\
         .update(update_data)\
         .eq("id", team_id)\
         .execute()
