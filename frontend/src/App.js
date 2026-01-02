@@ -107,6 +107,18 @@ function App() {
           />
           
           {/* ============================================ */}
+          {/* JUDGE ROUTES */}
+          {/* ============================================ */}
+          <Route
+            path="/judge"
+            element={
+              <ProtectedRoute>
+                <JudgeDashboard />
+              </ProtectedRoute>
+            }
+          />
+          
+          {/* ============================================ */}
           {/* COMPETITION ROUTES (Read global profile, no profile logic) */}
           {/* ============================================ */}
           <Route
