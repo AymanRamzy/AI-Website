@@ -44,6 +44,10 @@ function AdminDashboard() {
   
   // Level manager state
   const [levelManagerComp, setLevelManagerComp] = useState(null);
+  
+  // Team Observer state
+  const [observingTeamId, setObservingTeamId] = useState(null);
+  const [allTeams, setAllTeams] = useState([]);
 
   const fetchStats = async () => {
     try {
