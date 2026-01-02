@@ -350,6 +350,12 @@ test_plan:
     - "Admin Scoring Criteria - POST /api/admin/competitions/{id}/criteria"
     - "Judge Endpoints - GET /api/cfo/judge/competitions"
     - "Participant Task Endpoints - GET /api/cfo/competitions/{id}/tasks"
+    - "Dashboard Quick Access Cards"
+    - "Dashboard My Badges Tab"
+    - "Talent Marketplace Page"
+    - "Season Leaderboard Page"
+    - "Sponsor Challenges Page"
+    - "AdminDashboard Team Observer Tab"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
