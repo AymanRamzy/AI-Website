@@ -82,21 +82,38 @@ function JoinTeam() {
 
   const handleJoinTeam = async (teamId) => {
     setError('');
+    setSuccessMessage('');
     setJoiningTeamId(teamId);
 
     try {
-      await axios.post(`${API_URL}/api/cfo/teams/join`, {
+      const response = await axios.post(`${API_URL}/api/cfo/teams/join`, {
         team_id: teamId,
-      });
+      }, { withCredentials: true });
 
-      // Redirect to team details page
-      navigate(`/teams/${teamId}`);
+      // SECURITY FIX: Join now creates pending request, not direct membership
+      // Show success message instead of navigating to team page
+      setSuccessMessage(response.data?.message || 'Join request submitted! Waiting for team leader approval.');
+      setJoiningTeamId(null);
+      
+      // DO NOT navigate to team page - user is not a member yet
+      // They will be notified when approved
+      
     } catch (error) {
-      console.error('Failed to join team:', error);
-      if (error.response?.data?.detail) {
-        setError(error.response.data.detail);
+      console.error('Failed to submit join request:', error);
+      const status = error.response?.status;
+      const detail = error.response?.data?.detail;
+      
+      if (status === 409) {
+        // Already requested or already member
+        setError(detail || 'You already have a pending join request for this team.');
+      } else if (status === 403) {
+        // Not allowed (not registered for competition, etc)
+        setError(detail || 'You cannot join this team.');
+      } else if (status === 400) {
+        // Team full or validation error
+        setError(detail || 'Unable to join team. The team may be full.');
       } else {
-        setError('Failed to join team. Please try again.');
+        setError(detail || 'Failed to submit join request. Please try again.');
       }
       setJoiningTeamId(null);
     }
