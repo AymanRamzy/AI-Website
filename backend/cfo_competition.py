@@ -2527,15 +2527,18 @@ async def get_public_leaderboard(
     
     # Check if results are published
     comp = supabase.table("competitions")\
-        .select("status, results_published")\
+        .select("*")\
         .eq("id", competition_id)\
         .execute()
     
     if not comp.data:
-        raise HTTPException(status_code=404, detail="Competition not found")
+        raise HTTPException(status_code=404, detail=CompetitionErrors.COMPETITION_NOT_FOUND)
     
-    if not comp.data[0].get("results_published"):
-        return {"message": "Results not yet published", "leaderboard": []}
+    # PHASE 1.5: Check explicit status flags
+    status_flags = get_competition_status_flags(comp.data[0])
+    
+    if not status_flags["results_published"]:
+        raise HTTPException(status_code=403, detail=CompetitionErrors.RESULTS_NOT_PUBLISHED)
     
     # Get leaderboard (same logic as admin but limited data)
     teams = supabase.table("teams")\
