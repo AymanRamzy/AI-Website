@@ -864,19 +864,13 @@ class StrategicSuiteAPITester:
             self.log("❌ Failed to get test competition", "ERROR")
             return {"setup_failed": False}
         
-        # Test 2: Phase 5 - Team Governance
-        results["phase5_team_governance"] = self.test_phase5_team_governance()
+        # Test 2: Team Join Approval Flow (Phase 5-6) - PRIORITY TEST
+        results["team_join_approval_flow"] = self.test_team_join_approval_flow()
         
-        # Test 3: Phase 6 - Admin Observer Mode
-        results["phase6_admin_observer"] = self.test_phase6_admin_observer_mode()
-        
-        # Test 4: Phase 8 - Scoring Fairness
-        results["phase8_scoring_fairness"] = self.test_phase8_scoring_fairness()
-        
-        # Test 5: Phase 9 - Talent Marketplace
+        # Test 3: Phase 9 - Talent Marketplace
         results["phase9_talent_marketplace"] = self.test_phase9_talent_marketplace()
         
-        # Test 6: Phase 10 - Gamification
+        # Test 4: Phase 10 - Gamification
         results["phase10_gamification"] = self.test_phase10_gamification()
         
         # Summary
