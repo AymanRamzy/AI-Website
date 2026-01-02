@@ -401,8 +401,53 @@ function TeamSubmission({ teamId, competition, team }) {
                   <Shield className="w-4 h-4 inline-block mr-1" />
                   Your submission is locked and cannot be modified.
                 </p>
+
+                {/* Score Display and Appeal Option */}
+                {submission.score !== undefined && submission.score !== null && (
+                  <div className="mt-4 pt-4 border-t border-green-200">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center">
+                        <span className="text-sm text-gray-600 mr-2">Score:</span>
+                        <span className="text-2xl font-bold text-modex-secondary">
+                          {submission.score?.toFixed(2)}
+                        </span>
+                        <span className="text-sm text-gray-500 ml-1">/100</span>
+                      </div>
+                      {!submission.appeal_submitted && !showAppealForm && (
+                        <button
+                          onClick={() => setShowAppealForm(true)}
+                          className="flex items-center px-4 py-2 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 transition-colors text-sm font-medium"
+                        >
+                          <Scale className="w-4 h-4 mr-2" />
+                          Appeal Score
+                        </button>
+                      )}
+                      {submission.appeal_submitted && (
+                        <span className="flex items-center px-4 py-2 bg-yellow-100 text-yellow-700 rounded-lg text-sm font-medium">
+                          <AlertTriangle className="w-4 h-4 mr-2" />
+                          Appeal Submitted
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
+
+            {/* Score Appeal Form */}
+            {showAppealForm && (
+              <div className="mt-4">
+                <ScoreAppealForm
+                  submissionId={submission.id}
+                  originalScore={submission.score}
+                  onAppealSubmitted={() => {
+                    setShowAppealForm(false);
+                    loadExistingSubmission(); // Refresh to show appeal status
+                  }}
+                  onCancel={() => setShowAppealForm(false)}
+                />
+              </div>
+            )}
           </div>
         )}
 
