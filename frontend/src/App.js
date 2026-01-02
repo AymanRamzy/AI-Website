@@ -30,6 +30,7 @@ import TalentOffers from './pages/TalentOffers';
 import TalentSettings from './pages/TalentSettings';
 import SeasonLeaderboard from './pages/SeasonLeaderboard';
 import SponsorChallenges from './pages/SponsorChallenges';
+import PointsHistory from './pages/PointsHistory';
 import AuthConfirm from './pages/AuthConfirm';
 import AuthCallback from './pages/AuthCallback';
 import CheckEmail from './pages/CheckEmail';
