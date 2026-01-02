@@ -3032,3 +3032,386 @@ async def get_submission_for_scoring(
         "existing_scores": score_map,
         "overall": overall.data[0] if overall.data else None
     }
+
+
+
+@router.get("/judge/competitions/{competition_id}/criteria")
+async def get_judge_criteria(
+    competition_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """Get scoring criteria for a competition."""
+    supabase = get_supabase_client()
+    
+    # Get competition to determine current level
+    comp = supabase.table("competitions")\
+        .select("current_level")\
+        .eq("id", competition_id)\
+        .execute()
+    
+    level = comp.data[0].get("current_level", 2) if comp.data else 2
+    
+    # Get criteria that apply to this level
+    criteria = supabase.table("scoring_criteria")\
+        .select("*")\
+        .eq("is_active", True)\
+        .order("display_order")\
+        .execute()
+    
+    applicable = [c for c in (criteria.data or []) if level in c.get("applies_to_levels", [])]
+    
+    return applicable
+
+
+@router.get("/judge/submissions/{submission_id}/my-scores")
+async def get_my_submission_scores(
+    submission_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """Get judge's own scores for a submission."""
+    supabase = get_supabase_client()
+    
+    # Get criteria scores
+    criteria_scores = supabase.table("score_entries")\
+        .select("criterion_id, score, feedback")\
+        .eq("submission_id", submission_id)\
+        .eq("judge_id", current_user.id)\
+        .execute()
+    
+    # Get overall score record
+    overall = supabase.table("scores")\
+        .select("overall_feedback, weighted_total, is_final")\
+        .eq("submission_id", submission_id)\
+        .eq("judge_id", current_user.id)\
+        .execute()
+    
+    return {
+        "criteria_scores": criteria_scores.data or [],
+        "overall_feedback": overall.data[0].get("overall_feedback") if overall.data else "",
+        "is_final": overall.data[0].get("is_final") if overall.data else False
+    }
+
+
+@router.post("/judge/submissions/{submission_id}/scores")
+async def submit_judge_scores(
+    submission_id: str,
+    score_data: dict,
+    current_user: User = Depends(get_current_user)
+):
+    """Submit or update judge scores for a submission with criteria-based scoring."""
+    import logging
+    logger = logging.getLogger(__name__)
+    supabase = get_supabase_client()
+    
+    # Verify submission exists
+    submission = supabase.table("submissions")\
+        .select("id, task_id, tasks(competition_id)")\
+        .eq("id", submission_id)\
+        .execute()
+    
+    if not submission.data:
+        raise HTTPException(status_code=404, detail="Submission not found")
+    
+    competition_id = submission.data[0].get("tasks", {}).get("competition_id")
+    
+    # Verify judge assignment
+    assignment = supabase.table("judge_assignments")\
+        .select("id")\
+        .eq("competition_id", competition_id)\
+        .eq("judge_id", current_user.id)\
+        .eq("is_active", True)\
+        .execute()
+    
+    if not assignment.data:
+        raise HTTPException(status_code=403, detail="You are not assigned as judge")
+    
+    criteria_scores = score_data.get("criteria_scores", [])
+    overall_feedback = score_data.get("overall_feedback", "")
+    is_final = score_data.get("is_final", False)
+    
+    # Upsert each criterion score
+    for cs in criteria_scores:
+        supabase.table("score_entries").upsert({
+            "submission_id": submission_id,
+            "criterion_id": cs["criterion_id"],
+            "judge_id": current_user.id,
+            "score": cs.get("score", 0),
+            "feedback": cs.get("feedback", "")
+        }, on_conflict="submission_id,criterion_id,judge_id").execute()
+    
+    # Calculate weighted total
+    weighted_total = 0
+    criteria = supabase.table("scoring_criteria").select("id, weight").eq("is_active", True).execute()
+    criteria_map = {c["id"]: c["weight"] for c in (criteria.data or [])}
+    
+    for cs in criteria_scores:
+        weight = criteria_map.get(cs["criterion_id"], 0)
+        weighted_total += cs.get("score", 0) * (weight / 100)
+    
+    # Upsert overall score record
+    supabase.table("scores").upsert({
+        "submission_id": submission_id,
+        "judge_id": current_user.id,
+        "overall_feedback": overall_feedback,
+        "weighted_total": round(weighted_total, 2),
+        "is_final": is_final,
+        "scored_at": datetime.utcnow().isoformat()
+    }, on_conflict="submission_id,judge_id").execute()
+    
+    logger.info(f"Judge {current_user.id} scored submission {submission_id}, final={is_final}")
+    
+    return {
+        "success": True,
+        "weighted_total": round(weighted_total, 2),
+        "is_final": is_final
+    }
+
+
+# =========================================================
+# PARTICIPANT TASK-LEVEL ENDPOINTS (PHASE 2-4)
+# =========================================================
+
+@router.get("/competitions/{competition_id}/tasks")
+async def get_competition_tasks(
+    competition_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """Get all active tasks for a competition (participant view)."""
+    supabase = get_supabase_client()
+    
+    result = supabase.table("tasks")\
+        .select("id, title, description, level, deadline, allowed_file_types, constraints_text, assumptions_policy, requirements_text, max_points")\
+        .eq("competition_id", competition_id)\
+        .eq("is_active", True)\
+        .order("level")\
+        .order("order_index")\
+        .execute()
+    
+    return result.data or []
+
+
+@router.get("/teams/{team_id}/submissions")
+async def get_team_submissions(
+    team_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """Get all submissions for a team across all tasks."""
+    supabase = get_supabase_client()
+    
+    # Verify team membership
+    membership = supabase.table("team_members")\
+        .select("id")\
+        .eq("team_id", team_id)\
+        .eq("user_id", current_user.id)\
+        .execute()
+    
+    if not membership.data:
+        raise HTTPException(status_code=403, detail="You are not a member of this team")
+    
+    result = supabase.table("submissions")\
+        .select("id, task_id, file_name, file_url, submitted_at, status, is_final")\
+        .eq("team_id", team_id)\
+        .order("submitted_at", desc=True)\
+        .execute()
+    
+    return result.data or []
+
+
+@router.post("/teams/{team_id}/submissions/task")
+async def submit_task_file(
+    team_id: str,
+    task_id: str = Form(...),
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user)
+):
+    """Submit a file for a specific task."""
+    import logging
+    from supabase import create_client
+    logger = logging.getLogger(__name__)
+    supabase = get_supabase_client()
+    
+    # Verify team membership
+    membership = supabase.table("team_members")\
+        .select("id")\
+        .eq("team_id", team_id)\
+        .eq("user_id", current_user.id)\
+        .execute()
+    
+    if not membership.data:
+        raise HTTPException(status_code=403, detail="You are not a member of this team")
+    
+    # Get task details
+    task = supabase.table("tasks")\
+        .select("id, competition_id, level, allowed_file_types, deadline")\
+        .eq("id", task_id)\
+        .execute()
+    
+    if not task.data:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    task_data = task.data[0]
+    competition_id = task_data["competition_id"]
+    
+    # Verify competition is at the right level
+    comp = supabase.table("competitions")\
+        .select("current_level")\
+        .eq("id", competition_id)\
+        .execute()
+    
+    current_level = comp.data[0].get("current_level", 1) if comp.data else 1
+    if task_data["level"] > current_level:
+        raise HTTPException(status_code=403, detail="This task is not yet available")
+    
+    # Check deadline
+    if task_data.get("deadline"):
+        deadline = datetime.fromisoformat(task_data["deadline"].replace("Z", "+00:00"))
+        if datetime.utcnow().replace(tzinfo=deadline.tzinfo) > deadline:
+            raise HTTPException(status_code=403, detail="Task deadline has passed")
+    
+    # Validate file type
+    file_ext = os.path.splitext(file.filename or "")[1].lower().lstrip(".")
+    allowed_types = task_data.get("allowed_file_types", ["pdf", "xlsx", "docx"])
+    if file_ext not in allowed_types:
+        raise HTTPException(status_code=400, detail=f"Invalid file type. Allowed: {', '.join(allowed_types)}")
+    
+    # Read file
+    contents = await file.read()
+    if len(contents) > 50 * 1024 * 1024:  # 50MB max
+        raise HTTPException(status_code=413, detail="File size exceeds 50MB limit")
+    
+    # Upload to storage
+    SUPABASE_URL = os.environ.get("SUPABASE_URL")
+    SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    
+    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+        raise HTTPException(status_code=500, detail="Storage configuration error")
+    
+    supabase_admin = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+    
+    safe_filename = file.filename.replace(" ", "_")
+    file_path = f"submissions/{competition_id}/{team_id}/{task_id}/{safe_filename}"
+    
+    try:
+        # Remove existing if any
+        try:
+            supabase_admin.storage.from_("Team-submissions").remove([file_path])
+        except:
+            pass
+        
+        # Upload
+        supabase_admin.storage.from_("Team-submissions").upload(
+            path=file_path,
+            file=contents,
+            file_options={"content-type": "application/octet-stream", "upsert": "true"}
+        )
+        
+        # Create signed URL for access
+        signed_url = supabase_admin.storage.from_("Team-submissions").create_signed_url(file_path, 3600 * 24 * 7)
+        file_url = signed_url.get("signedURL") or signed_url.get("signedUrl") if isinstance(signed_url, dict) else None
+        
+        # Check for existing submission
+        existing = supabase.table("submissions")\
+            .select("id")\
+            .eq("team_id", team_id)\
+            .eq("task_id", task_id)\
+            .execute()
+        
+        submission_data = {
+            "team_id": team_id,
+            "task_id": task_id,
+            "file_name": file.filename,
+            "file_url": file_url or file_path,
+            "file_path": file_path,
+            "submitted_at": datetime.utcnow().isoformat(),
+            "submitted_by": current_user.id,
+            "level": task_data["level"],
+            "status": "submitted"
+        }
+        
+        if existing.data:
+            # Update existing
+            result = supabase.table("submissions")\
+                .update(submission_data)\
+                .eq("id", existing.data[0]["id"])\
+                .execute()
+        else:
+            # Insert new
+            result = supabase.table("submissions").insert(submission_data).execute()
+        
+        if not result.data:
+            raise HTTPException(status_code=500, detail="Failed to save submission")
+        
+        logger.info(f"Team {team_id} submitted to task {task_id}")
+        
+        return result.data[0]
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Task submission error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to submit file")
+
+
+# =========================================================
+# ADMIN CRITERIA ENDPOINTS (Competition-Specific)
+# =========================================================
+
+@router.get("/admin/competitions/{competition_id}/criteria")
+async def get_competition_criteria(
+    competition_id: str,
+    current_user: User = Depends(get_admin_user)
+):
+    """Get scoring criteria (global, filtered by competition level)."""
+    supabase = get_supabase_client()
+    
+    result = supabase.table("scoring_criteria")\
+        .select("*")\
+        .eq("is_active", True)\
+        .order("display_order")\
+        .execute()
+    
+    return result.data or []
+
+
+@router.post("/admin/competitions/{competition_id}/criteria")
+async def create_competition_criterion(
+    competition_id: str,
+    criterion_data: dict,
+    current_user: User = Depends(get_admin_user)
+):
+    """Create a scoring criterion."""
+    supabase = get_supabase_client()
+    
+    data = {
+        "name": criterion_data.get("name"),
+        "description": criterion_data.get("description", ""),
+        "weight": criterion_data.get("weight", 20),
+        "applies_to_levels": criterion_data.get("applies_to_levels", [2, 3, 4]),
+        "is_active": True,
+        "display_order": criterion_data.get("display_order", 0)
+    }
+    
+    result = supabase.table("scoring_criteria").insert(data).execute()
+    
+    return result.data[0] if result.data else None
+
+
+@router.patch("/admin/competitions/{competition_id}/criteria/{criterion_id}")
+async def update_competition_criterion(
+    competition_id: str,
+    criterion_id: str,
+    updates: dict,
+    current_user: User = Depends(get_admin_user)
+):
+    """Update a scoring criterion."""
+    supabase = get_supabase_client()
+    
+    allowed = ["name", "description", "weight", "applies_to_levels", "is_active", "display_order"]
+    data = {k: v for k, v in updates.items() if k in allowed}
+    
+    result = supabase.table("scoring_criteria")\
+        .update(data)\
+        .eq("id", criterion_id)\
+        .execute()
+    
+    return result.data[0] if result.data else {"success": True}
