@@ -585,7 +585,7 @@ async def remove_judge(
     """Admin: Remove a judge from a competition."""
     supabase = get_supabase_client()
     
-    result = supabase.table("judge_assignments")\
+    supabase.table("judge_assignments")\
         .update({"is_active": False})\
         .eq("competition_id", competition_id)\
         .eq("judge_id", judge_id)\
