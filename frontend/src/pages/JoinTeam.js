@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
-import { Users, Trophy, ArrowLeft, AlertCircle, CheckCircle, UserPlus } from 'lucide-react';
+import { Users, Trophy, ArrowLeft, AlertCircle, CheckCircle, UserPlus, Clock, RefreshCw } from 'lucide-react';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL || '';
 
@@ -12,6 +12,7 @@ function JoinTeam() {
   const [competitions, setCompetitions] = useState([]);
   const [selectedCompetition, setSelectedCompetition] = useState('');
   const [teams, setTeams] = useState([]);
+  const [teamJoinStatuses, setTeamJoinStatuses] = useState({}); // Track join status per team
   const [loading, setLoading] = useState(true);
   const [loadingTeams, setLoadingTeams] = useState(false);
   const [error, setError] = useState('');
