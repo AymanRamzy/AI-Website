@@ -46,6 +46,8 @@ function JudgeDashboard() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [expandedSubmissions, setExpandedSubmissions] = useState({});
+  const [blindJudging, setBlindJudging] = useState(false);
+  const [scoringLocked, setScoringLocked] = useState(false);
 
   useEffect(() => {
     // Verify judge role
