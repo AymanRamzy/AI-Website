@@ -19,6 +19,7 @@ import {
   Layers,
   Activity,
   UserPlus,
+  Scale,
 } from 'lucide-react';
 import TeamChat from '../components/TeamChat';
 import TeamVideo from '../components/TeamVideo';
