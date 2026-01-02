@@ -16,11 +16,13 @@ import {
   Award,
   FileText,
   Send,
+  Layers,
 } from 'lucide-react';
 import TeamChat from '../components/TeamChat';
 import TeamVideo from '../components/TeamVideo';
 import TeamCase from '../components/TeamCase';
 import TeamSubmission from '../components/TeamSubmission';
+import TeamLevelTasks from '../components/TeamLevelTasks';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL || '';
 
