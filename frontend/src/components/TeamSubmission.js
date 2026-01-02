@@ -13,8 +13,11 @@ import {
   Archive,
   Clock,
   Shield,
-  Ban
+  Ban,
+  Scale,
+  AlertTriangle
 } from 'lucide-react';
+import ScoreAppealForm from './ScoreAppealForm';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL || '';
 
