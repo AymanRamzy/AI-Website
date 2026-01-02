@@ -212,7 +212,63 @@ async def create_join_request(
     return {"success": True, "request": result.data[0] if result.data else None}
 
 
-@router.get("/cfo/teams/{team_id}/join-requests")
+@router.get("/cfo/teams/{team_id}/join-status")
+async def get_user_join_status(
+    team_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Check current user's join status for a specific team.
+    
+    Returns one of:
+    - { "status": "none" } - No request, not a member
+    - { "status": "pending" } - Request pending approval
+    - { "status": "approved" } - Approved, is a member
+    - { "status": "rejected" } - Request was rejected
+    - { "status": "member" } - Already a team member
+    
+    This is the SINGLE SOURCE OF TRUTH for join status.
+    Frontend must use this to determine button state.
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    supabase = get_supabase_client()
+    
+    try:
+        # First check if user is already a team member
+        membership = supabase.table("team_members")\
+            .select("id, role")\
+            .eq("team_id", team_id)\
+            .eq("user_id", current_user.id)\
+            .execute()
+        
+        if membership.data:
+            return {"status": "member", "role": membership.data[0].get("role")}
+        
+        # Check for existing join request
+        request = supabase.table("team_join_requests")\
+            .select("id, status, created_at")\
+            .eq("team_id", team_id)\
+            .eq("user_id", current_user.id)\
+            .order("created_at", desc=True)\
+            .limit(1)\
+            .execute()
+        
+        if request.data:
+            req = request.data[0]
+            return {
+                "status": req["status"],
+                "request_id": req["id"],
+                "created_at": req["created_at"]
+            }
+        
+        # No membership, no request
+        return {"status": "none"}
+        
+    except Exception as e:
+        logger.error(f"Error checking join status for team {team_id}: {e}")
+        # Default to none on error - safest option
+        return {"status": "none"}
 async def get_team_join_requests(
     team_id: str,
     status: Optional[str] = Query("pending"),
