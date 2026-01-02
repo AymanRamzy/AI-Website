@@ -22,6 +22,7 @@ function CompetitionDetails() {
   const navigate = useNavigate();
   const { competitionId } = useParams();
   const [competition, setCompetition] = useState(null);
+  const [statusFlags, setStatusFlags] = useState(null); // Server-side status flags (SINGLE SOURCE OF TRUTH)
   const [isRegistered, setIsRegistered] = useState(false);
   const [loading, setLoading] = useState(true);
   const [registering, setRegistering] = useState(false);
