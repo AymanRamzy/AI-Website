@@ -168,6 +168,46 @@ function App() {
           />
           
           {/* ============================================ */}
+          {/* TALENT MARKETPLACE ROUTES (Phase 9) */}
+          {/* ============================================ */}
+          <Route
+            path="/talent"
+            element={
+              <ProtectedRoute>
+                <TalentMarketplace />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/talent/:userId"
+            element={
+              <ProtectedRoute>
+                <TalentProfile />
+              </ProtectedRoute>
+            }
+          />
+          
+          {/* ============================================ */}
+          {/* GAMIFICATION ROUTES (Phase 10) */}
+          {/* ============================================ */}
+          <Route
+            path="/leaderboard"
+            element={
+              <ProtectedRoute>
+                <SeasonLeaderboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/challenges"
+            element={
+              <ProtectedRoute>
+                <SponsorChallenges />
+              </ProtectedRoute>
+            }
+          />
+          
+          {/* ============================================ */}
           {/* TEAM ROUTES (Competition-related) */}
           {/* ============================================ */}
           <Route
