@@ -292,6 +292,7 @@ function AdminDashboard() {
     { id: 'overview', label: 'Overview' },
     { id: 'users', label: 'Users' },
     { id: 'competitions', label: 'Competitions' },
+    { id: 'levels', label: 'Levels & Tasks' },
     { id: 'team-chats', label: 'Team Chats' },
   ];
 
