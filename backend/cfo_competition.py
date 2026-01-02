@@ -1630,14 +1630,22 @@ async def join_team(
     join_data: TeamJoin,
     current_user: User = Depends(get_current_user)
 ):
-    """Join an existing team."""
+    """
+    Request to join an existing team.
+    
+    SECURITY FIX (P0): This endpoint now creates a pending join request
+    instead of directly adding to team_members.
+    
+    Users can ONLY be added to a team through leader approval via:
+    POST /api/cfo/teams/{teamId}/join-requests/{requestId}/review
+    """
     import logging
     logger = logging.getLogger(__name__)
     supabase = get_supabase_client()
     
     # Get team details
     team_result = supabase.table("teams") \
-        .select("*") \
+        .select("*, team_members(count)") \
         .eq("id", join_data.team_id) \
         .execute()
     
@@ -1669,44 +1677,68 @@ async def join_team(
         team_info = membership.get("teams")
         if team_info and team_info.get("competition_id") == team["competition_id"]:
             raise HTTPException(
-                status_code=400,
+                status_code=409,
                 detail="You are already in a team for this competition"
             )
     
+    # Check if user already has a pending request for this team
+    existing_request = supabase.table("team_join_requests") \
+        .select("id, status") \
+        .eq("team_id", join_data.team_id) \
+        .eq("user_id", current_user.id) \
+        .in_("status", ["pending"]) \
+        .execute()
+    
+    if existing_request.data:
+        raise HTTPException(
+            status_code=409,
+            detail="You already have a pending join request for this team"
+        )
+    
     # Get current member count
-    MAX_TEAM_SIZE = 5  # Constant max team size
+    MAX_TEAM_SIZE = team.get("max_members", 5)
     members_result = supabase.table("team_members") \
-        .select("id") \
+        .select("id", count="exact") \
         .eq("team_id", join_data.team_id) \
         .execute()
     
-    current_members = len(members_result.data or [])
+    current_members = members_result.count or 0
     
     if current_members >= MAX_TEAM_SIZE:
         raise HTTPException(status_code=400, detail="Team is full")
     
-    # Add user to team
+    # SECURITY FIX: Create join request instead of direct insert
+    # User will be added ONLY when leader approves via /join-requests/{id}/review
     now = datetime.utcnow().isoformat()
-    member_dict = {
-        "team_id": join_data.team_id,
-        "user_id": current_user.id,
-        "user_name": current_user.full_name,
-        "joined_at": now
-    }
     
     try:
-        supabase.table("team_members").insert(member_dict).execute()
+        request_data = {
+            "team_id": join_data.team_id,
+            "user_id": current_user.id,
+            "message": getattr(join_data, 'message', None) or f"Request to join from {current_user.full_name or current_user.email}",
+            "status": "pending",
+            "created_at": now
+        }
         
-        # Team is implicitly complete when member count reaches MAX_TEAM_SIZE
-        # No status update needed - frontend calculates from member count
+        supabase.table("team_join_requests").insert(request_data).execute()
         
-        logger.info(f"User {current_user.id} joined team {join_data.team_id}")
+        logger.info(f"User {current_user.id} created join request for team {join_data.team_id}")
         
-        return {"success": True, "message": "Successfully joined team"}
+        return {
+            "success": True, 
+            "message": "Join request submitted. Waiting for team leader approval.",
+            "status": "pending"
+        }
         
     except Exception as e:
-        logger.error(f"Join team error: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to join team: {str(e)}")
+        logger.error(f"Join request error: {e}")
+        # Check if it's a duplicate key error
+        if "duplicate" in str(e).lower() or "unique" in str(e).lower():
+            raise HTTPException(
+                status_code=409, 
+                detail="You already have a pending join request for this team"
+            )
+        raise HTTPException(status_code=500, detail=f"Failed to submit join request: {str(e)}")
 
 
 @router.get("/teams/{team_id}")
