@@ -378,7 +378,8 @@ function JoinTeam() {
                           </div>
                         </div>
                       </div>
-                    ))}
+                    );
+                    })}
                   </div>
                 )}
               </div>
