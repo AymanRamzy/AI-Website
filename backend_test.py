@@ -889,32 +889,36 @@ class Phase24APITester:
         self.log("=== CFO Competition Backend API Testing Started ===")
         
         results = {}
+    
+    def run_all_tests(self) -> Dict[str, bool]:
+        """Run all Phase 2-4 test suites and return results"""
+        self.log("=== Phase 2-4 Multi-Level Competition Engine Testing Started ===")
         
-        # Test 1: API Health Check
-        results["api_health"] = self.test_api_health()
+        results = {}
         
-        # Test 2: User Registration
-        results["user_registration"] = self.test_user_registration()
+        # Setup test users and get competition
+        if not self.setup_test_users():
+            self.log("❌ Failed to setup test users", "ERROR")
+            return {"setup_failed": False}
         
-        # Test 3: User Login
-        results["user_login"] = self.test_user_login()
+        if not self.get_test_competition():
+            self.log("❌ Failed to get test competition", "ERROR")
+            return {"setup_failed": False}
         
-        # Test 4: Protected Endpoint Access
-        results["protected_access"] = self.test_protected_endpoint_access()
+        # Test 1: Admin Task Management
+        results["admin_task_management"] = self.test_admin_task_management()
         
-        # Test 5: Team Management (if basic auth works)
-        if results["user_registration"] and results["user_login"]:
-            results["team_management"] = self.test_team_management_apis()
-        else:
-            results["team_management"] = False
-            self.log("⚠️ Skipping team management tests due to auth failures", "WARNING")
+        # Test 2: Admin Scoring Criteria
+        results["admin_scoring_criteria"] = self.test_admin_scoring_criteria()
         
-        # Test 6: Team Submission APIs (if team management works)
-        if results["team_management"]:
-            results["team_submissions"] = self.test_team_submission_apis()
-        else:
-            results["team_submissions"] = False
-            self.log("⚠️ Skipping team submission tests due to team management failures", "WARNING")
+        # Test 3: Admin Level Control
+        results["admin_level_control"] = self.test_admin_level_control()
+        
+        # Test 4: Judge Endpoints
+        results["judge_endpoints"] = self.test_judge_endpoints()
+        
+        # Test 5: Participant Task Endpoints
+        results["participant_task_endpoints"] = self.test_participant_task_endpoints()
         
         # Summary
         self.log("=== Test Results Summary ===")
@@ -928,7 +932,7 @@ class Phase24APITester:
         self.log(f"Overall: {passed}/{total} tests passed")
         
         if passed == total:
-            self.log("🎉 All tests passed! Authentication flow is working correctly.")
+            self.log("🎉 All Phase 2-4 tests passed! Multi-level competition engine is working correctly.")
         else:
             self.log("⚠️ Some tests failed. Check the logs above for details.")
         
@@ -936,15 +940,8 @@ class Phase24APITester:
 
 def main():
     """Main test execution"""
-    tester = CFOAPITester()
+    tester = Phase24APITester()
     results = tester.run_all_tests()
-    
-    # Print test credentials for manual verification
-    if tester.test_users:
-        print("\n=== Test User Credentials (for manual verification) ===")
-        for role, user_info in tester.test_users.items():
-            creds = user_info["credentials"]
-            print(f"{role.upper()}: {creds['email']} / {creds['password']}")
     
     # Exit with appropriate code
     all_passed = all(results.values())
