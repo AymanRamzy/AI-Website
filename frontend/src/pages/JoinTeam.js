@@ -112,13 +112,17 @@ function JoinTeam() {
         team_id: teamId,
       }, { withCredentials: true });
 
-      // SECURITY FIX: Join now creates pending request, not direct membership
-      // Show success message instead of navigating to team page
-      setSuccessMessage(response.data?.message || 'Join request submitted! Waiting for team leader approval.');
+      // Update local status to pending immediately (optimistic update)
+      setTeamJoinStatuses(prev => ({
+        ...prev,
+        [teamId]: { status: 'pending' }
+      }));
+
+      // Show success message
+      setSuccessMessage(response.data?.message || 'Your request has been sent. Waiting for team leader approval.');
       setJoiningTeamId(null);
       
       // DO NOT navigate to team page - user is not a member yet
-      // They will be notified when approved
       
     } catch (error) {
       console.error('Failed to submit join request:', error);
@@ -126,7 +130,11 @@ function JoinTeam() {
       const detail = error.response?.data?.detail;
       
       if (status === 409) {
-        // Already requested or already member
+        // Already requested or already member - update status
+        setTeamJoinStatuses(prev => ({
+          ...prev,
+          [teamId]: { status: 'pending' }
+        }));
         setError(detail || 'You already have a pending join request for this team.');
       } else if (status === 403) {
         // Not allowed (not registered for competition, etc)
