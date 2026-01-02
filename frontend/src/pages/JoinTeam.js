@@ -274,12 +274,12 @@ function JoinTeam() {
                             {joiningTeamId === team.id ? (
                               <>
                                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                                Joining...
+                                Requesting...
                               </>
                             ) : (
                               <>
                                 <UserPlus className="w-4 h-4 mr-2" />
-                                Join Team
+                                Request to Join
                               </>
                             )}
                           </button>
