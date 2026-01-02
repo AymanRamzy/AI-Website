@@ -757,6 +757,87 @@ function AdminDashboard() {
         {activeTab === 'team-chats' && (
           <AdminTeamChat />
         )}
+
+        {/* Team Observer Tab */}
+        {activeTab === 'observer' && (
+          <div className="space-y-6">
+            {/* Competition Selector for Team Observer */}
+            <div className="bg-gray-800 rounded-lg p-6">
+              <h3 className="text-lg font-medium text-white mb-4 flex items-center">
+                <Settings className="w-5 h-5 mr-2 text-purple-400" />
+                Select Competition to View Teams
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {competitions.map(comp => (
+                  <button
+                    key={comp.id}
+                    onClick={() => fetchAllTeams(comp.id)}
+                    className="text-left px-4 py-3 rounded-lg border-2 transition-all border-gray-600 hover:border-purple-500 bg-gray-700/50"
+                  >
+                    <div className="font-medium text-white">{comp.title}</div>
+                    <div className="text-sm text-gray-400">
+                      Level {comp.current_level || 1} • {comp.status}
+                    </div>
+                  </button>
+                ))}
+              </div>
+              {competitions.length === 0 && (
+                <p className="text-gray-400 text-center py-4">No competitions found.</p>
+              )}
+            </div>
+
+            {/* Teams List */}
+            {allTeams.length > 0 && (
+              <div className="bg-gray-800 rounded-lg p-6">
+                <h3 className="text-lg font-medium text-white mb-4">Teams</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {allTeams.map(team => (
+                    <div
+                      key={team.id}
+                      className="bg-gray-700/50 rounded-lg p-4 border border-gray-600 hover:border-purple-500 transition-colors"
+                    >
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <p className="font-bold text-white">{team.team_name}</p>
+                          <p className="text-sm text-gray-400">
+                            {team.team_members?.[0]?.count || 0} members
+                          </p>
+                        </div>
+                        <span className={`px-2 py-1 rounded text-xs font-bold ${
+                          team.status === 'complete' 
+                            ? 'bg-green-900/50 text-green-400' 
+                            : 'bg-yellow-900/50 text-yellow-400'
+                        }`}>
+                          {team.status}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-400">
+                          Submissions: {team.submission_count || 0}
+                        </span>
+                        <button
+                          onClick={() => setObservingTeamId(team.id)}
+                          className="text-purple-400 hover:text-purple-300 font-medium flex items-center"
+                        >
+                          <Settings className="w-4 h-4 mr-1" />
+                          Observe
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Team Observer Modal */}
+        {observingTeamId && (
+          <AdminTeamObserver 
+            teamId={observingTeamId} 
+            onClose={() => setObservingTeamId(null)} 
+          />
+        )}
     </div>
   );
 }
