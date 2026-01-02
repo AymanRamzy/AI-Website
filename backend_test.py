@@ -1,18 +1,20 @@
 #!/usr/bin/env python3
 """
-CFO Competition Backend API Testing Suite
-Tests authentication flow and team management APIs
+Phase 2-4 Multi-Level Competition Engine Backend API Testing Suite
+Tests admin task management, scoring criteria, judge endpoints, and participant task endpoints
 """
 
 import requests
 import json
 import sys
+import io
 from datetime import datetime, timedelta
 from typing import Dict, Any, Optional
 
 # Configuration
 BASE_URL = "https://financialchallenge.preview.emergentagent.com"
 API_BASE = f"{BASE_URL}/api/cfo"
+ADMIN_API_BASE = f"{BASE_URL}/api/admin"
 
 class CFOAPITester:
     def __init__(self):
