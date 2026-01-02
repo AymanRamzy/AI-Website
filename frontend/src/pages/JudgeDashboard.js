@@ -300,7 +300,29 @@ function JudgeDashboard() {
             {/* Submissions List */}
             {selectedCompetition && (
               <div className="bg-white rounded-xl border-2 border-gray-200 p-4">
-                <h3 className="font-bold text-gray-800 mb-3">Submissions to Review</h3>
+                {/* Scoring Status Indicators */}
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-bold text-gray-800">Submissions to Review</h3>
+                  <div className="flex items-center space-x-2">
+                    {blindJudging && (
+                      <span className="flex items-center text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full">
+                        <EyeOff className="w-3 h-3 mr-1" />
+                        Blind
+                      </span>
+                    )}
+                    {scoringLocked ? (
+                      <span className="flex items-center text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full">
+                        <Lock className="w-3 h-3 mr-1" />
+                        Locked
+                      </span>
+                    ) : (
+                      <span className="flex items-center text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
+                        <Unlock className="w-3 h-3 mr-1" />
+                        Open
+                      </span>
+                    )}
+                  </div>
+                </div>
                 {loading ? (
                   <div className="text-center py-4">
                     <Loader className="w-6 h-6 animate-spin text-modex-secondary mx-auto" />
@@ -309,7 +331,7 @@ function JudgeDashboard() {
                   <p className="text-gray-500 text-sm">No submissions to review</p>
                 ) : (
                   <div className="space-y-2 max-h-[400px] overflow-y-auto">
-                    {submissions.map(sub => (
+                    {submissions.map((sub, index) => (
                       <button
                         key={sub.id}
                         onClick={() => selectSubmission(sub)}
@@ -321,7 +343,9 @@ function JudgeDashboard() {
                       >
                         <div className="flex justify-between items-start">
                           <div>
-                            <div className="font-semibold text-gray-800">{sub.team_name || 'Team'}</div>
+                            <div className="font-semibold text-gray-800">
+                              {blindJudging ? `Submission #${index + 1}` : (sub.team_name || 'Team')}
+                            </div>
                             <div className="text-xs text-gray-500">
                               {sub.task_title || `Task ${sub.task_id?.slice(0, 8)}`}
                             </div>
