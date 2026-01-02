@@ -1005,8 +1005,6 @@ async def export_competition_results(
     import io
     from fastapi.responses import StreamingResponse
     
-    supabase = get_supabase_client()
-    
     # Get leaderboard
     leaderboard = await calculate_leaderboard(competition_id)
     
