@@ -65,15 +65,35 @@ function JoinTeam() {
   const loadTeams = async (competitionId) => {
     setLoadingTeams(true);
     setError('');
+    setTeamJoinStatuses({});
     try {
       const response = await axios.get(
-        `${API_URL}/api/cfo/teams/competition/${competitionId}`
+        `${API_URL}/api/cfo/teams/competition/${competitionId}`,
+        { withCredentials: true }
       );
       // Filter teams that are not full
       const availableTeams = response.data.filter(
         (team) => team.members.length < team.max_members
       );
       setTeams(availableTeams);
+      
+      // Fetch join status for each team (SINGLE SOURCE OF TRUTH)
+      const statuses = {};
+      await Promise.all(
+        availableTeams.map(async (team) => {
+          try {
+            const statusRes = await axios.get(
+              `${API_URL}/api/cfo/teams/${team.id}/join-status`,
+              { withCredentials: true }
+            );
+            statuses[team.id] = statusRes.data;
+          } catch (err) {
+            // Default to none if status check fails
+            statuses[team.id] = { status: 'none' };
+          }
+        })
+      );
+      setTeamJoinStatuses(statuses);
     } catch (error) {
       console.error('Failed to load teams:', error);
       setError('Failed to load teams. Please try again.');
