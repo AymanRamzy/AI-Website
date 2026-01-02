@@ -81,12 +81,16 @@ class StrategicSuiteAPITester:
                 self.log("⚠️ Authentication required - using mock tokens for testing", "WARNING")
                 # Set mock tokens for testing
                 self.admin_token = "mock_admin_token"
-                self.judge_token = "mock_judge_token"
+                self.leader_token = "mock_leader_token"
                 self.participant_token = "mock_participant_token"
+                self.company_token = "mock_company_token"
                 return True
             elif response.status_code == 200:
                 self.log("✅ Admin access working")
                 self.admin_token = "test_admin_token"
+                self.leader_token = "test_leader_token"
+                self.participant_token = "test_participant_token"
+                self.company_token = "test_company_token"
                 return True
             else:
                 self.log(f"❌ Unexpected response: {response.status_code}", "ERROR")
