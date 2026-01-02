@@ -21,6 +21,7 @@ JUDGE_API_BASE = f"{BASE_URL}/api/judge"
 class Phase510APITester:
     def __init__(self):
         self.session = requests.Session()
+        self.session.headers.update({'Content-Type': 'application/json'})
         self.admin_token = None
         self.judge_token = None
         self.participant_token = None
@@ -29,6 +30,7 @@ class Phase510APITester:
         self.test_criterion_id = None
         self.test_team_id = None
         self.test_submission_id = None
+        self.test_judge_id = None
         
     def log(self, message: str, level: str = "INFO"):
         """Log test messages with timestamp"""
