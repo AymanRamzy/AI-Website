@@ -24,6 +24,7 @@ from cfo_competition import router as cfo_router
 from admin_router import router as admin_router
 from chat_service import router as chat_router
 from phase5_10_router import router as phase5_10_router
+from strategic_router import router as strategic_router
 from socketio_server import socket_app
 
 # OPTIONAL IMPROVEMENT: Rate limiting middleware
