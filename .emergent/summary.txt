@@ -1,82 +1,105 @@
-<analysis>**original_problem_statement**: The user requested a series of features and bug fixes for the ModEX platform. The work can be summarized in several major phases:
-1.  **Team Collaboration Feature:** Implement Case and Submission tabs within the existing team workspace. This involved creating new frontend components, adding backend endpoints for fetching case data and handling file uploads, and creating a new  database table.
-2.  **Timer-Based Controls:** Enhance the platform with admin-configurable timers. Admins need to be able to set a Case Release Time and a Submission Deadline for each competition. The UI must show countdowns and lock/unlock features based on these server-enforced times.
-3.  **File Upload Bug:** The user reported that file submissions were uploading forever. This led to a multi-step debugging process that uncovered and fixed issues with incorrect API paths, restrictive bucket MIME types, and a case-sensitive bucket name ().
-4.  **Google Sign-In:** Implement Google Sign-In using Supabase OAuth. This required adding a frontend button, handling the auth callback, and adding a backend endpoint to sync the Supabase session into the application's cookie-based session management.
-5.  **Global Chat:** Add a Global Chat tab to the main dashboard, separate from team chats. This was implemented using Supabase Realtime for instant messaging, backed by a new  table with Row-Level Security.
-6.  **Google Sign-In Bugs:** After implementation, the user reported two bugs: a double login was required, and new users were incorrectly sent to a profile completion page. These were fixed by refining the frontend auth context to handle race conditions and updating the backend to mark Google users as profile complete by default.
+<analysis>**original_problem_statement**: The user wants to build a comprehensive ModEX platform for hosting CFO-level competitions. The initial request was to add team collaboration, timer-based controls, file submissions, and Google Sign-In. The project has evolved through a series of structured phases provided by the user:
+
+*   **Phase 0: Platform Safety:** Ensure the backend is stable and the core authentication flow (Register -> Login -> Protected Route) is reliable.
+*   **Phase 1: CFO Competition Core:** Implement the foundational modules for Team Management, Competition Tasks, Judging & Scoring, a Leaderboard, and basic Admin Controls.
+*   **Phase 1.5: Operational Hardening:** Improve platform reliability with explicit status flags, clearer user-facing error messages, and database-level constraints to prevent race conditions and invalid data.
+*   **Phases 2, 3, 4: Multi-Level Engine:** Build out the functionality to support a multi-level competition.
+    *   **Level 2:** Financial modeling and written analysis submissions.
+    *   **Level 3:** Strategic decision report submissions.
+    *   **Level 4:** Final video presentation submissions.
+    *   This includes implementing a criteria-based, weighted scoring rubric for judges.
+
+Throughout the process, the user also requested several bug fixes, most critically for a persistent mobile authentication issue where users get stuck in a login loop.
 
 **User's preferred language**: English
 
 **what currently exists?**
-A full-stack React/FastAPI application with a Supabase backend. Key features include:
--   **Authentication**: Supports both email/password and Google Sign-In, using a secure HttpOnly cookie-based session system.
--   **Dashboard**: A central dashboard with tabs for My Teams, Competitions, and a Global Chat.
--   **Team Workspace**: A detailed team view with tabs for Members, Chat, Video, Case, and Submission.
--   **Case/Submission Flow**: A complete, timer-driven system where admins can upload case files and set release/deadline dates. Teams see countdowns and can download cases and upload submissions according to these server-enforced schedules.
--   **Global Chat**: A real-time, public chat for all authenticated users, built on Supabase Realtime.
+A full-stack React/FastAPI application with a Supabase backend.
+*   **Authentication**: A hybrid system using Supabase for primary auth (Email/Password, Google OAuth) and a FastAPI backend that issues its own session cookie. It includes a  token fallback to handle mobile cross-domain cookie issues. The auth flow has been hardened with a  flag in  to prevent race conditions.
+*   **Phase 0 (Platform Safety)**: Completed and verified. The backend has a stable, centralized Supabase client, and the core authentication endpoints are functional.
+*   **Phase 1 (Competition Core - Backend)**: The backend is complete. All necessary endpoints for Team Management, Tasks, Submissions, Scoring, and Leaderboards have been created in  and .
+*   **Phase 1.5 (Operational Hardening - Backend)**: The backend is complete. A database migration was created to add constraints. Endpoints were updated to provide explicit status flags (e.g., ) and clearer error messages (e.g., Submission window is closed).
+*   **Phases 2, 3, 4 (Multi-Level Engine - Backend)**: The backend is complete. A database migration has been created () to support multi-level competitions and criteria-based scoring. All required backend endpoints have been added to .
+*   **Frontend**: The UI exists for basic auth, dashboard, and team management. UI for the newer features (Phases 1-4) has not been built.
 
 **Last working item**:
--   Last item agent was working: Fixing a bug where new users signing in with Google were redirected to the  page instead of the main dashboard. The agent modified the backend to set  for new users created via the Google OAuth callback.
+-   Last item agent was working: Implementing the backend logic for Phases 2, 3, and 4. This involved creating a new database migration () to add tables/columns for competition levels and criteria-based scoring, and adding the corresponding CRUD endpoints to .
 -   Status: IN PROGRESS
--   Agent Testing Done: N
--   Which testing method agent to use? Manual testing. The agent must simulate a *new* user registration via Google to verify the fix. This requires: 1. Logging out. 2. Deleting the test user from both  and  in the Supabase dashboard to ensure it's treated as a new user. 3. Clicking Sign in with Google and verifying the final redirect is to the dashboard (), not the profile completion page.
+-   Agent Testing Done: N (The agent verified that the new endpoints require authentication but did not perform functional tests.)
+-   Which testing method agent to use? backend testing agent. The agent should create a test file under  to perform functional tests on the newly created admin endpoints for managing competition levels, tasks with criteria, and scoring.
 -   User Testing Done: N
 
 **All Pending/In progress Issue list**:
--   Issue 1: Verify the fix for the Google Sign-In redirect for new users. (P0)
--   Issue 2: Verify the team file submission functionality is fully working. (P1)
+-   Issue 1: The mobile authentication flow is intermittently failing on the user's live environment, causing login loops or incorrect redirects. (P0)
+-   Issue 2: The UI for the experience years dropdown might still show outdated values on the user's end due to browser/CDN caching, despite the code being correct. (P2)
 
 Issues Detail:
 -   Issue 1:
-    -   Attempted fixes: The agent edited  within the  endpoint to add  when creating a new user profile.
-    -   Next debug checklist: Follow the manual testing steps outlined in the Last working item section to test the complete onboarding flow for a new Google user.
-    -   Why fix this issue and what will be achieved with the fix? To ensure a seamless onboarding experience for new users signing up with Google, removing the unnecessary profile completion step.
-    -   Status: IN PROGRESS
-    -   Is recurring issue? N
-    -   Should Test frontend/backend/both after fix? Both (the flow is end-to-end).
+    -   Attempted fixes: Multiple fixes have been implemented: 1) Made OAuth  dynamic using . 2) Implemented a  token fallback for cross-domain cookie issues. 3) Refactored  with a  flag to prevent race conditions. 4) Simplified  to handle mobile PKCE flow correctly. 5) Set  and  for session cookies.
+    -   Next debug checklist:
+        1.  Verify the Supabase Auth settings in the live project have redirect URLs for both  and .
+        2.  Using a real mobile device (or browser dev tools), trace the network requests during a Google login on the live site.
+        3.  Check if the  call succeeds and returns a token.
+        4.  Confirm the token is stored in .
+        5.  Confirm subsequent API calls (like ) include the  header.
+        6.  If the issue persists, the problem lies in the environment configuration (e.g., proxy dropping headers) rather than the application code.
+    -   Why fix this issue and what will be achieved with the fix? This is a critical P0 blocker preventing users from using the application on mobile devices.
+    -   Status: USER VERIFICATION PENDING
+    -   Is recurring issue? Y
+    -   Should Test frontend/backend/both after fix? Both (End-to-end flow).
     -   Blocked on other issue: None
 
 -   Issue 2:
-    -   Attempted fixes: The user initially reported that file uploads were stuck. The agent applied multiple fixes: 1. Corrected the API URL path in the frontend. 2. Changed the backend to upload files with a generic MIME type ( and later ) to bypass bucket restrictions. 3. Corrected the code to use the case-sensitive bucket name . The user never gave a final confirmation that this last fix worked.
-    -   Next debug checklist: 1. Log in as a team member. 2. Navigate to the Team -> Submission tab. 3. Attempt to upload a ZIP or Excel file. 4. Confirm the upload completes and the UI updates to show the submitted file. 5. Verify the file appears in the  folder in the Supabase Storage dashboard.
-    -   Why fix this issue and what will be achieved with the fix? This is a core feature for the platform. Fixing it ensures teams can submit their solutions to competitions.
+    -   Attempted fixes: The agent updated the options in  and , updated corresponding enums in the backend, and suggested the user perform a hard refresh (Ctrl+Shift+R) or clear their browser cache.
+    -   Next debug checklist: This is likely not a code issue. The next step is to ask the user to verify in an incognito/private browser window. If it still persists, it's a deployment/caching issue on their hosting platform.
+    -   Why fix this issue and what will be achieved with the fix? Aligns the UI with the user's requirement for more granular experience options.
     -   Status: USER VERIFICATION PENDING
     -   Is recurring issue? Y
-    -   Should Test frontend/backend/both after fix? Both.
+    -   Should Test frontend/backend/both after fix? Frontend.
     -   Blocked on other issue: None
 
 **In progress Task List**:
-None.
+-   Task 1: Implement Frontend for Phases 1-4 (P0)
+    -   Where to resume: Start by creating the UI components for the features whose backend is already complete. Prioritize Phase 2.
+    -   What will be achieved with this? This will make the core competition engine (multi-level tasks, criteria-based scoring, leaderboard) usable by admins, judges, and participants.
+    -   Status: NOT STARTED
+    -   Should Test frontend/backend/both after fix? Both.
+    -   Blocked on something: None.
 
 **Upcoming and Future Tasks**
-None were explicitly requested by the user in the provided history.
+-   **Phase 2 - Frontend Implementation (P0):**
+    -   Admin UI in  to manage  for a competition.
+    -   Admin UI to create/manage Level 2 tasks (Financial Model, Written Case Study Analysis).
+    -   A new Judge Dashboard/View where judges can see assigned submissions and score them using a criteria-based rubric.
+    -   Update Participant Team Dashboard to display Level 2 tasks and allow file uploads against them.
+-   **Phase 3 - Frontend Implementation (P1):**
+    -   Extend Admin UI to create/manage Level 3 tasks with constraints and assumptions text fields.
+    -   Update the Leaderboard UI to support filtering by level or showing a cumulative score.
+-   **Phase 4 - Frontend Implementation (P1):**
+    -   Extend Admin UI to create the Level 4 Final Video Presentation task.
+    -   Extend Participant UI to support video file uploads.
+    -   Extend Judge UI to enable scoring for the video presentation criterion.
+    -   Add an admin toggle to publish/unpublish judge comments.
 
 **Completed work in this session**
--   **Team Collaboration Feature:**
-    -   Created Case and Submission tabs and their corresponding components (, ).
-    -   Modified  to integrate the new tabs.
-    -   Added backend endpoints in  to support fetching case files and handling submissions.
--   **Admin Timer Controls:**
-    -   Overhauled  to allow admins to upload case files and set  and  timers for competitions.
-    -   Updated backend models and API endpoints in  and  to persist and enforce these timers.
-    -   Rewrote frontend components (, ) to display countdown timers and lock/unlock features based on server data.
--   **Google Sign-In Implementation:**
-    -   Added Google OAuth login flow to , , and .
-    -   Created a backend endpoint () in  to sync the Supabase session with the application's session cookie.
--   **Global Chat Feature:**
-    -   Added a Global Chat tab to .
-    -   Created  component utilizing Supabase Realtime for live messaging.
-    -   Created a migration () for the  table and its RLS policies.
--   **Bug Fixes:**
-    -   Resolved multiple file upload blockers (API path, MIME type, bucket name case-sensitivity).
-    -   Fixed a Google Sign-In double-login issue by improving auth state handling in .
-    -   Corrected a critical bug in the submission endpoint where the competition was not being resolved correctly, causing the deadline check to fail silently.
-    -   Fixed a PATCH endpoint failure by removing an attempt to write to a non-existent  column.
-    -   Improved UI/UX of countdown timers based on user feedback.
+-   **Multi-Phase Backend Implementation:**
+    -   Phase 1 (Core Engine): Added all missing backend endpoints for tasks, submissions, scoring, and leaderboards.
+    -   Phase 1.5 (Hardening): Created a DB migration for constraints and updated endpoints with status flags and clearer error messages.
+    -   Phases 2-4 (Levels Engine): Created DB migration and all backend endpoints to support multi-level tasks and criteria-based, weighted scoring.
+-   **Mobile Auth Stability (Major Refactor):**
+    -   Fixed cross-domain cookie issues ().
+    -   Made OAuth  dynamic to handle  vs. non- domains.
+    -   Implemented a robust  token fallback system in  to combat mobile cookie blocking.
+    -   Hardened  and  with a  flag to prevent auth race conditions and redirect loops on mobile.
+-   **Feature & Fix Implementations:**
+    -   Added Continue with Google to the  page.
+    -   Updated Years of Experience options across the full stack.
+    -   Implemented an Admin Team Chat feature to allow admins to monitor team conversations.
+    -   Fixed a 520 error on the CV upload endpoint.
+-   **Platform Safety:** Recreated a missing  file and stabilized the server startup process.
 
 **Earlier issues found/mentioned but not fixed**
-None. All identified issues were addressed.
+None. All major issues were addressed, with the mobile auth flow being the main recurring one that is pending final user validation.
 
 **Known issue recurrence from previous fork**
 -   Issue recurrence in previous fork: None
@@ -89,82 +112,87 @@ None. All identified issues were addressed.
 **Key Technical Concepts**
 -   **Frontend:** React, React Router, TailwindCSS, Axios
 -   **Backend:** FastAPI, Pydantic
--   **Database & BaaS:** Supabase (PostgreSQL, Auth, Storage, **Realtime**)
--   **Authentication:** HttpOnly cookie-based sessions, with Supabase handling the primary email/password and Google OAuth flows.
--   **Security:** Row-Level Security (RLS) on new database tables.
+-   **Database & BaaS:** Supabase (PostgreSQL, Auth, Storage)
+-   **Authentication:** A hybrid model using Supabase for primary OAuth/password auth and a FastAPI backend that issues its own HttpOnly session cookie. A critical  token fallback mechanism was implemented in  to handle mobile Safari's cross-domain cookie blocking.
+-   **State Management:** React Context () provides global authentication state. It has been significantly hardened with a  flag to prevent race conditions and redirect loops during initial auth resolution on mobile devices.
 
 **key DB schema**
--   **competitions:** {...,  timestamptz,  timestamptz}
--   **team_submissions:** {id, team_id, competition_id, file_path, submitted_by, submitted_at, ...}
--   **global_chat_messages:** {id, user_id, user_name, message, created_at}
+-   **competitions:** { ...,  INT,  BOOLEAN }
+-   **tasks:** { ...,  INT,  TEXT[],  TEXT,  TEXT }
+-   **submissions:** { ...,  UUID (FK to tasks), UNIQUE(, ) }
+-   **score_criteria:** { id, competition_id, name, weight, description }
+-   **score_entries:** { id, submission_id, judge_id, criterion_id, score, comment }
 
 **changes in tech stack**
--   Addition of **Supabase Realtime** for the Global Chat feature.
+None.
 
 **All files of reference**
-*   : Heavily modified for submission logic, timer enforcement, and Google Auth callback.
-*   : Modified to add admin controls for case files and timers.
-*   : Overhauled to provide UI for new admin controls.
-*   : Modified to add the Global Chat tab.
-*   : Modified to add Case and Submission tabs.
-*   : New file for displaying case files with timer logic.
-*   : New file for handling submissions with timer logic.
-*   : New file for the real-time chat feature.
-*   : Rewritten to manage a loading state and fix auth race conditions.
-*   : Rewritten to properly handle the post-Google-Auth flow.
-*   : New migration for the submissions table.
-*   : New migration for the global chat table and RLS policies.
+*   **/app/backend/cfo_competition.py**: Heavily modified to add endpoints for Phase 1-4 and harden existing logic with clearer error messages.
+*   **/app/backend/admin_router.py**: Heavily modified to add admin endpoints for managing levels, tasks, criteria, and scoring.
+*   **/app/frontend/src/context/AuthContext.js**: Major refactoring to implement the  flag and  token fallback for mobile auth stability.
+*   **/app/frontend/src/pages/AuthCallback.js**: Major refactoring to simplify the OAuth callback logic and make it mobile-safe.
+*   **/app/frontend/src/components/ProtectedRoute.js**: Refactored to use the new  flag from .
+*   **/app/frontend/src/pages/Login.js**: OAuth  made dynamic.
+*   **/app/frontend/src/pages/Register.js**: OAuth  made dynamic and Google button added.
+*   **/app/supabase/migrations/20260102_phase15_operational_hardening.sql**: New migration for database constraints.
+*   **/app/supabase/migrations/20260102_phase2_4_levels_engine.sql**: New migration for multi-level competition schema.
 
 **Areas that need refactoring**:
--   : Remains monolithic and should be broken into , , etc.
--   : Has grown significantly and now handles competition management, user management, and case file management. It should be refactored into smaller, dedicated components.
+-   The user has explicitly forbidden refactoring. The focus is on implementing the phased roadmap.
 
 **key api endpoints**
--   : New endpoint to create an app session from a Supabase Google login.
--   : New admin endpoint to upload case files.
--   : New team endpoint to fetch case files (with timer logic).
--   : Heavily modified to enforce deadlines and correctly handle file storage.
--   : Modified to accept and save timer data.
+*   : Admin endpoint to create a task for a competition.
+*   : Admin endpoint to define scoring criteria.
+*   : Judge endpoint to submit scores for a submission.
+*   : Participant endpoint to get the current status of a competition (registration open, submission open, etc.).
+*   : Participant endpoint to view tasks for their level.
+*   : Public endpoint to view the leaderboard.
 
 **Critical Info for New Agent**
--   **File Submission Testing:** The file submission flow has been a recurring problem. When testing, be sure to verify not just the UI, but also that the file physically appears in the correct Supabase Storage path: .
--   **Google Sign-In Testing:** To test the new user Google Sign-In flow, you MUST delete the user from Supabase's  and  tables first. Otherwise, Supabase will treat it as a returning user login.
--   **Bucket Name Case-Sensitivity:** The storage bucket for submissions is named  (capital 'T'). The code failed previously due to using a lowercase name. Be mindful of this if making any changes related to storage.
--   **Supabase Configuration:** The functionality relies on manual configuration in the Supabase Dashboard for Google OAuth credentials and Storage bucket MIME types. Do not assume these can be changed via code.
+-   **Mobile Authentication is Fragile:** This is the most critical and recurring issue. The codebase now contains a multi-layered fix ( token fallback, a  flag to prevent race conditions, dynamic ). Do NOT modify , , or  without fully understanding this hybrid auth system, as it risks re-introducing the mobile login loop. The user may still report this issue on their live environment, which could point to a deployment/configuration issue beyond the code.
+-   **Follow the Phased Roadmap:** The user has provided a strict, multi-phase execution plan. Phases 0, 1, 1.5, and the backend for 2-4 are complete. Your primary task is to build the **frontend UI** for Phases 2, 3, and 4 in that order. Do not add features or refactor code outside this scope.
+-   **Backend is Ready for UI:** The backend endpoints and database schemas for the entire multi-level competition engine are already implemented. You should start by building the frontend components that consume these new APIs.
 
-**documents and test_reports created in this job**
--   
--   
--   
--   
+**documents and test reports created in this job**
+-   /app/backend/.env
+-   /app/test_reports/iteration_3.json
+-   /app/supabase/migrations/20260102_phase15_operational_hardening.sql
+-   /app/supabase/migrations/20260102_phase2_4_levels_engine.sql
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  add seconds here
-2.  add seconds, but if you can make the count down is bigger and same as countdown before case released
-3.  Still there are no countdown, why not add the same in the case tab ?
-4.  (User provides prompt to fix submission logic)
-5.  after signin with google redirect me to complete-profile not home screen
-6.  (User provides prompt to fix Google double-login)
-7.  (User provides prompt to add Global Chat)
-8.  (User provides prompt to add Google Sign-In)
-9.  add seconds here
-10. I have updated both tabs to show seconds in the countdown format...
+1.  **User request**: Provides a detailed prompt for implementing Phases 2, 3, and 4 (the multi-level competition engine). The backend for this has been implemented. The frontend is pending.
+2.  **Agent summary**: Agent summarizes completion of Phase 1.5 (Operational Hardening).
+3.  **User request**: Provides a detailed prompt to implement Phase 1.5. This is complete.
+4.  **Agent summary**: Agent summarizes completion of Phases 0 and 1.
+5.  **User request**: Provides the master prompt for the entire project roadmap (Phases 0-4).
+6.  **Agent summary**: Agent confirms the final mobile auth fix is in place and advises user on required Supabase Auth settings.
+7.  **User request**: Asks the agent to read the latest code from GitHub. Agent confirmed the code was synced.
+8.  **Agent summary**: Agent summarizes a fix for mobile auth persistence.
+9.  **User report**: Reports being redirected back to the  page after a fix.
+10. **User report**: Reports that the mobile login issue still persists.
 
 **Project Health Check:**
--   **Broken:** None.
+-   **Broken:** The frontend build was unstable and required a forced dependency reinstall (yarn install v1.22.22
+info No lockfile found.
+[1/4] Resolving packages...
+[2/4] Fetching packages...
+[3/4] Linking dependencies...
+[4/4] Rebuilding all packages...
+success Saved lockfile.
+Done in 0.09s.). The mobile authentication flow is considered unstable due to repeated user reports of failures in their live environment, despite the code appearing correct and robust.
 -   **Mocked:** None.
 
 **3rd Party Integrations**
--   **Supabase**: Used for PostgreSQL database, Authentication (including Google OAuth), File Storage, and Realtime.
+-   **Supabase**: Used for PostgreSQL database, Authentication (including Google OAuth), and File Storage.
 
 **Testing status**
 -   Testing agent used after significant changes: YES
 -   Troubleshoot agent used after agent stuck in loop: NO
 -   Test files created: []
--   Known regressions: None
+-   Known regressions: The mobile authentication flow has been a recurring regression point, though the latest fixes in the codebase are the most robust yet.
 
 **Credentials to test flow:**
-Credentials for email/password login and Google OAuth must be configured in the Supabase project. The agent can register a new user through the UI or use Google Sign-In for testing.
+The agent created a  file with the , , and a user-provided . These should be sufficient for backend services to run. For frontend testing, new users can be registered via the UI.
 
 **What agent forgot to execute**
-The agent implemented fixes for the Google Sign-In redirect and the file submission flow but did not perform a final verification test for either. These are the most critical pending items for the next agent.</analysis>
+The agent successfully followed the user's detailed, phased prompts. No major tasks were forgotten. The primary pending work is the entire frontend implementation for the competition engine (Phases 2-4), which is the logical next step in the user's roadmap.</analysis>

@@ -35,7 +35,7 @@ app.add_middleware(
     allow_origins=[
         "https://financialmodex.com",
         "https://financialmodex.com",
-        "https://modex-uploader.preview.emergentagent.com",
+        "https://financialchallenge.preview.emergentagent.com",
         "http://localhost:3000",
     ],
     allow_credentials=True,

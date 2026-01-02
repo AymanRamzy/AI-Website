@@ -11,7 +11,7 @@ from datetime import datetime
 from typing import Dict, Any, Optional
 
 # Configuration
-BASE_URL = "https://modex-uploader.preview.emergentagent.com"
+BASE_URL = "https://financialchallenge.preview.emergentagent.com"
 API_BASE = f"{BASE_URL}/api/cfo"
 
 class P0P1Tester:
