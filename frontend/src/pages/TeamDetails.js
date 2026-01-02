@@ -457,6 +457,16 @@ function TeamDetails() {
             </div>
           )}
 
+          {/* Tasks Tab */}
+          {activeTab === 'tasks' && (
+            <div>
+              <TeamLevelTasks 
+                teamId={teamId}
+                competition={competition}
+              />
+            </div>
+          )}
+
           {/* Chat Tab */}
           {activeTab === 'chat' && (
             <div>
