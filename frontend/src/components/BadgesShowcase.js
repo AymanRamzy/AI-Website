@@ -149,7 +149,7 @@ function BadgesShowcase() {
           {myBadges.length === 0 ? (
             <div className="text-center py-12 bg-gray-50 rounded-xl">
               <Award className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500">You haven't earned any badges yet</p>
+              <p className="text-gray-500">You haven&apos;t earned any badges yet</p>
               <p className="text-sm text-gray-400 mt-2">
                 Participate in competitions to earn badges!
               </p>
