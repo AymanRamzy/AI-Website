@@ -473,13 +473,7 @@ async def admin_team_full_view(
     """
     supabase = get_supabase_client()
     
-    # Log admin view
-    await log_admin_view(
-        supabase, current_user.id, "team_detail",
-        "team", team_id
-    )
-    
-    # Get team
+    # Get team first to get competition_id for logging
     team = supabase.table("teams")\
         .select("*, competitions(id, title, status)")\
         .eq("id", team_id)\
@@ -489,7 +483,13 @@ async def admin_team_full_view(
         raise HTTPException(status_code=404, detail="Team not found")
     
     team_data = team.data[0]
-    competition_id = team_data.get("competitions", {}).get("id")
+    comp_id = team_data.get("competitions", {}).get("id")
+    
+    # Log admin view with competition context
+    await log_admin_view(
+        supabase, current_user.id, "team_detail",
+        "team", team_id, comp_id
+    )
     
     # Get members
     members = supabase.table("team_members")\
