@@ -17,13 +17,16 @@ import {
   Users,
   Loader,
   ChevronRight,
-  DollarSign
+  DollarSign,
+  Settings,
+  Mail
 } from 'lucide-react';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL || '';
 
 function TalentMarketplace() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [talents, setTalents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
