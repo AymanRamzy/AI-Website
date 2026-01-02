@@ -225,6 +225,14 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/points"
+            element={
+              <ProtectedRoute>
+                <PointsHistory />
+              </ProtectedRoute>
+            }
+          />
           
           {/* ============================================ */}
           {/* TEAM ROUTES (Competition-related) */}
