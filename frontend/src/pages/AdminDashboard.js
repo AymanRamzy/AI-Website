@@ -2,6 +2,7 @@
  * AdminDashboard - Admin management interface
  * SECURITY HARDENED: Cookie-based authentication (P0 Frontend Integration)
  * ENHANCED: Case file upload + Timer configuration + Level Management (Phase 2-4)
+ * PHASE 8: Appeals Panel for Judging Fairness
  */
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
@@ -9,11 +10,12 @@ import { useAuth } from '../context/AuthContext';
 import { 
   Upload, FileText, Clock, Trash2, Download, 
   Calendar, AlertCircle, CheckCircle, Loader,
-  Settings, X, MessageCircle, Layers
+  Settings, X, MessageCircle, Layers, Scale
 } from 'lucide-react';
 import AdminTeamChat from '../components/AdminTeamChat';
 import AdminLevelManager from '../components/AdminLevelManager';
 import AdminTeamObserver from '../components/AdminTeamObserver';
+import AdminAppealsPanel from '../components/AdminAppealsPanel';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || '';
 
