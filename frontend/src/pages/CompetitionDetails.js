@@ -154,6 +154,7 @@ function CompetitionDetails() {
   /**
    * PHASE A FIX: Status badge driven by server-side status flags
    * Maps server status to user-friendly display
+   * PRIORITY: registration_open flag takes precedence for clarity
    */
   const getStatusBadge = () => {
     if (!statusFlags) {
@@ -164,7 +165,7 @@ function CompetitionDetails() {
       );
     }
 
-    // Priority: Check explicit flags first, then status
+    // PRIORITY 1: If registration is open, show that clearly
     if (statusFlags.registration_open) {
       return (
         <span className="px-4 py-2 rounded-full text-sm font-bold bg-green-100 text-green-800">
@@ -173,19 +174,30 @@ function CompetitionDetails() {
       );
     }
 
-    // Map server status to display
+    // PRIORITY 2: Map server status with registration context
+    // If status is 'open' but registration_open is false, competition has started
+    const status = statusFlags.status;
+    
+    if (status === 'open' || status === 'active') {
+      // Competition is active but registration is closed
+      return (
+        <span className="px-4 py-2 rounded-full text-sm font-bold bg-blue-100 text-blue-800">
+          Competition Ongoing
+        </span>
+      );
+    }
+
+    // Map other server statuses
     const statusMap = {
       draft: { label: 'Not Open Yet', color: 'bg-gray-100 text-gray-800' },
       registration: { label: 'Registration Open', color: 'bg-green-100 text-green-800' },
-      active: { label: 'Competition Ongoing', color: 'bg-blue-100 text-blue-800' },
       judging: { label: 'Judging In Progress', color: 'bg-yellow-100 text-yellow-800' },
       completed: { label: 'Completed', color: 'bg-gray-100 text-gray-800' },
-      open: { label: 'Open', color: 'bg-green-100 text-green-800' },
       closed: { label: 'Closed', color: 'bg-red-100 text-red-800' }
     };
 
-    const statusInfo = statusMap[statusFlags.status] || { 
-      label: statusFlags.status || 'Unknown', 
+    const statusInfo = statusMap[status] || { 
+      label: status || 'Unknown', 
       color: 'bg-gray-100 text-gray-800' 
     };
 
