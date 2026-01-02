@@ -39,33 +39,24 @@ def get_competition_status_flags(competition_data: dict) -> dict:
     """
     Derive explicit status flags from competition data.
     These flags are read-only for participants.
+    
+    CRITICAL: registration_open MUST come from database field, NOT derived from dates.
     """
     now = datetime.utcnow()
     status = competition_data.get("status", "draft")
     
-    # Check date-based flags
-    reg_start = competition_data.get("registration_start")
-    reg_end = competition_data.get("registration_end")
-    submission_deadline = competition_data.get("submission_deadline_at")
+    # FIXED: Read registration_open directly from database field
+    # Do NOT derive from dates, do NOT hardcode to False
+    registration_open = competition_data.get("registration_open", False)
     
-    registration_open = False
-    submission_open = False
+    # Read other flags from database
     submissions_locked = competition_data.get("submissions_locked", False)
     results_published = competition_data.get("results_published", False)
     
-    # Derive registration_open from dates and status
-    if status in ["registration", "active"]:
-        if reg_start and reg_end:
-            try:
-                start = datetime.fromisoformat(reg_start.replace("Z", "+00:00")).replace(tzinfo=None)
-                end = datetime.fromisoformat(reg_end.replace("Z", "+00:00")).replace(tzinfo=None)
-                registration_open = start <= now <= end
-            except (ValueError, TypeError):
-                registration_open = status == "registration"
-        else:
-            registration_open = status == "registration"
+    # Derive submission_open from status and deadline (this is acceptable)
+    submission_open = False
+    submission_deadline = competition_data.get("submission_deadline_at")
     
-    # Derive submission_open from status and deadline
     if status == "active" and not submissions_locked:
         if submission_deadline:
             try:
