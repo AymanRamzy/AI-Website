@@ -60,7 +60,7 @@ def get_competition_status_flags(competition_data: dict) -> dict:
                 start = datetime.fromisoformat(reg_start.replace("Z", "+00:00")).replace(tzinfo=None)
                 end = datetime.fromisoformat(reg_end.replace("Z", "+00:00")).replace(tzinfo=None)
                 registration_open = start <= now <= end
-            except:
+            except (ValueError, TypeError):
                 registration_open = status == "registration"
         else:
             registration_open = status == "registration"
@@ -71,7 +71,7 @@ def get_competition_status_flags(competition_data: dict) -> dict:
             try:
                 deadline = datetime.fromisoformat(submission_deadline.replace("Z", "+00:00")).replace(tzinfo=None)
                 submission_open = now <= deadline
-            except:
+            except (ValueError, TypeError):
                 submission_open = True
         else:
             submission_open = True
