@@ -269,6 +269,9 @@ async def get_user_join_status(
         logger.error(f"Error checking join status for team {team_id}: {e}")
         # Default to none on error - safest option
         return {"status": "none"}
+
+
+@router.get("/cfo/teams/{team_id}/join-requests")
 async def get_team_join_requests(
     team_id: str,
     status: Optional[str] = Query("pending"),
