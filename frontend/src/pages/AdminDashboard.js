@@ -313,6 +313,7 @@ function AdminDashboard() {
     { id: 'competitions', label: 'Competitions' },
     { id: 'levels', label: 'Levels & Tasks' },
     { id: 'observer', label: 'Team Observer' },
+    { id: 'appeals', label: 'Appeals' },
     { id: 'team-chats', label: 'Team Chats' },
   ];
 
