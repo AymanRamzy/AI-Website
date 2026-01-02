@@ -100,6 +100,22 @@ function BadgesShowcase() {
               <p className="text-4xl font-bold">#{seasonPoints.rank || '-'}</p>
             </div>
           </div>
+          <div className="mt-4 flex space-x-4">
+            <Link
+              to="/leaderboard"
+              className="flex-1 bg-white/20 hover:bg-white/30 text-white py-2 px-4 rounded-lg text-center font-medium flex items-center justify-center"
+            >
+              <Trophy className="w-4 h-4 mr-2" />
+              Leaderboard
+            </Link>
+            <Link
+              to="/points"
+              className="flex-1 bg-white/20 hover:bg-white/30 text-white py-2 px-4 rounded-lg text-center font-medium flex items-center justify-center"
+            >
+              <TrendingUp className="w-4 h-4 mr-2" />
+              Points History
+            </Link>
+          </div>
         </div>
       )}
 
