@@ -278,7 +278,10 @@ function JoinTeam() {
                     <h2 className="text-xl font-bold text-modex-primary mb-4">
                       Available Teams ({teams.length})
                     </h2>
-                    {teams.map((team) => (
+                    {teams.map((team) => {
+                      const joinStatus = teamJoinStatuses[team.id]?.status || 'none';
+                      
+                      return (
                       <div
                         key={team.id}
                         className="bg-white rounded-xl p-6 border-2 border-gray-200 hover:border-modex-secondary transition-all"
@@ -295,23 +298,55 @@ function JoinTeam() {
                               {team.members.length}/{team.max_members} members
                             </p>
                           </div>
-                          <button
-                            onClick={() => handleJoinTeam(team.id)}
-                            disabled={joiningTeamId === team.id}
-                            className="bg-modex-secondary text-white px-6 py-2 rounded-lg font-bold hover:bg-modex-primary transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center"
-                          >
-                            {joiningTeamId === team.id ? (
-                              <>
-                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                                Requesting...
-                              </>
-                            ) : (
-                              <>
-                                <UserPlus className="w-4 h-4 mr-2" />
-                                Request to Join
-                              </>
-                            )}
-                          </button>
+                          
+                          {/* Join Button - State driven by backend join-status */}
+                          {joinStatus === 'member' || joinStatus === 'approved' ? (
+                            <span className="bg-green-100 text-green-700 px-4 py-2 rounded-lg font-medium flex items-center">
+                              <CheckCircle className="w-4 h-4 mr-2" />
+                              Already Member
+                            </span>
+                          ) : joinStatus === 'pending' ? (
+                            <span className="bg-yellow-100 text-yellow-700 px-4 py-2 rounded-lg font-medium flex items-center">
+                              <Clock className="w-4 h-4 mr-2" />
+                              Request Pending Approval
+                            </span>
+                          ) : joinStatus === 'rejected' ? (
+                            <button
+                              onClick={() => handleJoinTeam(team.id)}
+                              disabled={joiningTeamId === team.id}
+                              className="bg-gray-500 text-white px-6 py-2 rounded-lg font-bold hover:bg-gray-600 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center"
+                            >
+                              {joiningTeamId === team.id ? (
+                                <>
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                  Requesting...
+                                </>
+                              ) : (
+                                <>
+                                  <RefreshCw className="w-4 h-4 mr-2" />
+                                  Request Again
+                                </>
+                              )}
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleJoinTeam(team.id)}
+                              disabled={joiningTeamId === team.id}
+                              className="bg-modex-secondary text-white px-6 py-2 rounded-lg font-bold hover:bg-modex-primary transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center"
+                            >
+                              {joiningTeamId === team.id ? (
+                                <>
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                  Requesting...
+                                </>
+                              ) : (
+                                <>
+                                  <UserPlus className="w-4 h-4 mr-2" />
+                                  Request to Join
+                                </>
+                              )}
+                            </button>
+                          )}
                         </div>
 
                         {/* Team Members */}
@@ -326,7 +361,7 @@ function JoinTeam() {
                                 className="flex items-center text-sm"
                               >
                                 <div className="bg-gradient-to-br from-modex-secondary to-modex-accent w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold mr-2">
-                                  {member.user_name.charAt(0)}
+                                  {(member.user_name || 'U').charAt(0)}
                                 </div>
                                 <div>
                                   <p className="font-semibold text-gray-800">
