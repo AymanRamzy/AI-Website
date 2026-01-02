@@ -180,6 +180,40 @@ function Dashboard() {
         {/* Competitions Tab */}
         {activeTab === 'competitions' && (
           <div>
+            {/* Quick Access Cards for Platform Features */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+              <Link
+                to="/talent"
+                className="bg-gradient-to-r from-purple-500 to-indigo-600 rounded-xl p-6 text-white hover:shadow-lg transition-shadow"
+              >
+                <div className="flex items-center mb-2">
+                  <Users className="w-8 h-8 mr-3" />
+                  <h3 className="text-lg font-bold">Talent Marketplace</h3>
+                </div>
+                <p className="text-sm opacity-90">Discover top CFO talent and make offers</p>
+              </Link>
+              <Link
+                to="/leaderboard"
+                className="bg-gradient-to-r from-yellow-500 to-orange-600 rounded-xl p-6 text-white hover:shadow-lg transition-shadow"
+              >
+                <div className="flex items-center mb-2">
+                  <TrendingUp className="w-8 h-8 mr-3" />
+                  <h3 className="text-lg font-bold">Season Leaderboard</h3>
+                </div>
+                <p className="text-sm opacity-90">See the top performers this season</p>
+              </Link>
+              <Link
+                to="/challenges"
+                className="bg-gradient-to-r from-green-500 to-teal-600 rounded-xl p-6 text-white hover:shadow-lg transition-shadow"
+              >
+                <div className="flex items-center mb-2">
+                  <Target className="w-8 h-8 mr-3" />
+                  <h3 className="text-lg font-bold">Sponsor Challenges</h3>
+                </div>
+                <p className="text-sm opacity-90">Complete challenges and earn rewards</p>
+              </Link>
+            </div>
+
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-bold text-modex-primary">All Competitions</h2>
               {user?.role === 'admin' && (
