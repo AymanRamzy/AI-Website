@@ -110,6 +110,9 @@ function JudgeDashboard() {
     setScores({});
     setFeedback({});
     setOverallFeedback('');
+    // Check for blind judging and scoring lock settings
+    setBlindJudging(comp.blind_judging_enabled || false);
+    setScoringLocked(comp.scoring_locked || comp.submissions_locked || false);
     loadSubmissions(comp.id);
   };
 
