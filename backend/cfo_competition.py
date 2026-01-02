@@ -15,6 +15,77 @@ from models import (User, UserCreate, UserLogin, UserResponse, UserRole, Team,
                     GlobalProfileResponse)
 
 # =========================================================
+# PHASE 1.5: CLEAR ERROR MESSAGES (OPERATIONAL HARDENING)
+# =========================================================
+
+class CompetitionErrors:
+    """Explicit, user-friendly error messages for competition operations."""
+    REGISTRATION_CLOSED = "Registration window is closed for this competition"
+    SUBMISSION_CLOSED = "Submission window is closed"
+    SUBMISSIONS_LOCKED = "Submissions are locked and cannot be modified"
+    RESULTS_NOT_PUBLISHED = "Results are not published yet"
+    DEADLINE_PASSED = "The deadline for this task has passed"
+    NOT_TEAM_LEADER = "Only team leaders can perform this action"
+    NOT_IN_TEAM = "You are not assigned to a team for this competition"
+    NOT_REGISTERED = "You must be registered for this competition"
+    TEAM_FULL = "This team has reached the maximum number of members (5)"
+    ALREADY_IN_TEAM = "You are already in a team for this competition"
+    TASK_NOT_FOUND = "Task not found"
+    SUBMISSION_NOT_FOUND = "Submission not found"
+    COMPETITION_NOT_FOUND = "Competition not found"
+
+
+def get_competition_status_flags(competition_data: dict) -> dict:
+    """
+    Derive explicit status flags from competition data.
+    These flags are read-only for participants.
+    """
+    now = datetime.utcnow()
+    status = competition_data.get("status", "draft")
+    
+    # Check date-based flags
+    reg_start = competition_data.get("registration_start")
+    reg_end = competition_data.get("registration_end")
+    submission_deadline = competition_data.get("submission_deadline_at")
+    
+    registration_open = False
+    submission_open = False
+    submissions_locked = competition_data.get("submissions_locked", False)
+    results_published = competition_data.get("results_published", False)
+    
+    # Derive registration_open from dates and status
+    if status in ["registration", "active"]:
+        if reg_start and reg_end:
+            try:
+                start = datetime.fromisoformat(reg_start.replace("Z", "+00:00")).replace(tzinfo=None)
+                end = datetime.fromisoformat(reg_end.replace("Z", "+00:00")).replace(tzinfo=None)
+                registration_open = start <= now <= end
+            except:
+                registration_open = status == "registration"
+        else:
+            registration_open = status == "registration"
+    
+    # Derive submission_open from status and deadline
+    if status == "active" and not submissions_locked:
+        if submission_deadline:
+            try:
+                deadline = datetime.fromisoformat(submission_deadline.replace("Z", "+00:00")).replace(tzinfo=None)
+                submission_open = now <= deadline
+            except:
+                submission_open = True
+        else:
+            submission_open = True
+    
+    return {
+        "registration_open": registration_open,
+        "submission_open": submission_open,
+        "submissions_locked": submissions_locked,
+        "results_published": results_published,
+        "status": status
+    }
+
+
+# =========================================================
 # MODELS
 # =========================================================
 
