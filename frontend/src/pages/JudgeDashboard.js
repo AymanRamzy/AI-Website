@@ -1,6 +1,7 @@
 /**
  * JudgeDashboard - Judge interface for scoring submissions
  * PHASE 2-4: Criteria-based weighted scoring system
+ * PHASE 8: Blind judging, lock state, enhanced scoring
  */
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
@@ -20,7 +21,11 @@ import {
   Send,
   ChevronDown,
   ChevronUp,
-  ExternalLink
+  ExternalLink,
+  Lock,
+  Unlock,
+  EyeOff,
+  Eye
 } from 'lucide-react';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL || '';
