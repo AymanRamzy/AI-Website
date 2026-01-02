@@ -16,18 +16,100 @@ BASE_URL = "https://financialchallenge.preview.emergentagent.com"
 API_BASE = f"{BASE_URL}/api/cfo"
 ADMIN_API_BASE = f"{BASE_URL}/api/admin"
 
-class CFOAPITester:
+class Phase24APITester:
     def __init__(self):
         self.session = requests.Session()
-        self.test_users = {}
-        self.test_tokens = {}
-        self.test_competitions = {}
-        self.test_teams = {}
+        self.admin_token = None
+        self.judge_token = None
+        self.participant_token = None
+        self.test_competition_id = None
+        self.test_task_id = None
+        self.test_criterion_id = None
+        self.test_team_id = None
+        self.test_submission_id = None
         
     def log(self, message: str, level: str = "INFO"):
         """Log test messages with timestamp"""
         timestamp = datetime.now().strftime("%H:%M:%S")
         print(f"[{timestamp}] {level}: {message}")
+        
+    def setup_test_users(self) -> bool:
+        """Setup test users with different roles for testing"""
+        self.log("Setting up test users...")
+        
+        # For this test, we'll use existing credentials or create test users
+        # In a real scenario, you'd have pre-created test users
+        
+        # Try to login with known test credentials
+        test_credentials = [
+            {"email": "admin@modex.com", "password": "admin123", "role": "admin"},
+            {"email": "judge@modex.com", "password": "judge123", "role": "judge"},
+            {"email": "participant@modex.com", "password": "participant123", "role": "participant"}
+        ]
+        
+        success_count = 0
+        
+        for creds in test_credentials:
+            try:
+                response = self.session.post(
+                    f"{API_BASE}/auth/login",
+                    json={"email": creds["email"], "password": creds["password"]},
+                    headers={"Content-Type": "application/json"}
+                )
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    token = result.get("access_token")
+                    if token:
+                        if creds["role"] == "admin":
+                            self.admin_token = token
+                        elif creds["role"] == "judge":
+                            self.judge_token = token
+                        elif creds["role"] == "participant":
+                            self.participant_token = token
+                        
+                        self.log(f"✅ Logged in as {creds['role']}: {creds['email']}")
+                        success_count += 1
+                    else:
+                        self.log(f"❌ No token received for {creds['role']}", "ERROR")
+                else:
+                    self.log(f"❌ Login failed for {creds['role']}: {response.status_code}", "ERROR")
+                    
+            except Exception as e:
+                self.log(f"❌ Login error for {creds['role']}: {str(e)}", "ERROR")
+        
+        return success_count >= 1  # At least admin should work
+    
+    def get_test_competition(self) -> bool:
+        """Get an existing competition for testing"""
+        self.log("Getting test competition...")
+        
+        if not self.admin_token:
+            self.log("❌ No admin token available", "ERROR")
+            return False
+        
+        try:
+            response = self.session.get(
+                f"{ADMIN_API_BASE}/competitions",
+                headers={"Authorization": f"Bearer {self.admin_token}"}
+            )
+            
+            if response.status_code == 200:
+                competitions = response.json()
+                if competitions:
+                    self.test_competition_id = competitions[0]["id"]
+                    self.log(f"✅ Using test competition: {self.test_competition_id}")
+                    return True
+                else:
+                    self.log("❌ No competitions found", "ERROR")
+                    return False
+            else:
+                self.log(f"❌ Failed to get competitions: {response.status_code}", "ERROR")
+                return False
+                
+        except Exception as e:
+            self.log(f"❌ Error getting competitions: {str(e)}", "ERROR")
+            return False
         
     def test_api_health(self) -> bool:
         """Test basic API connectivity"""
