@@ -1,0 +1,65 @@
+{
+  "test_run": {
+    "timestamp": "2026-01-02T20:30:07.883318",
+    "backend_url": "https://cfo-modex.preview.emergentagent.com",
+    "total_tests": 9,
+    "passed_tests": 9,
+    "failed_tests": 0
+  },
+  "test_results": [
+    {
+      "test": "health_check",
+      "passed": true,
+      "details": "System healthy, database connected",
+      "timestamp": "2026-01-02T20:30:07.581559"
+    },
+    {
+      "test": "join_request_lifecycle",
+      "passed": true,
+      "details": "Endpoint secured with authentication",
+      "timestamp": "2026-01-02T20:30:07.593365"
+    },
+    {
+      "test": "duplicate_prevention",
+      "passed": true,
+      "details": "Authentication required for both requests",
+      "timestamp": "2026-01-02T20:30:07.661783"
+    },
+    {
+      "test": "join_status_endpoint",
+      "passed": true,
+      "details": "Endpoint secured with authentication",
+      "timestamp": "2026-01-02T20:30:07.677734"
+    },
+    {
+      "test": "leader_requests_list",
+      "passed": true,
+      "details": "Endpoint secured with authentication",
+      "timestamp": "2026-01-02T20:30:07.729312"
+    },
+    {
+      "test": "approve_request",
+      "passed": true,
+      "details": "Endpoint secured with authentication",
+      "timestamp": "2026-01-02T20:30:07.737891"
+    },
+    {
+      "test": "reject_request",
+      "passed": true,
+      "details": "Endpoint secured with authentication",
+      "timestamp": "2026-01-02T20:30:07.749351"
+    },
+    {
+      "test": "security_enforcement",
+      "passed": true,
+      "details": "3/3 endpoints secured",
+      "timestamp": "2026-01-02T20:30:07.815599"
+    },
+    {
+      "test": "endpoint_existence",
+      "passed": true,
+      "details": "All 3 endpoints found",
+      "timestamp": "2026-01-02T20:30:07.883234"
+    }
+  ]
+}
