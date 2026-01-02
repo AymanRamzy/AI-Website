@@ -385,6 +385,17 @@ function TeamDetails() {
                 <Send className="w-5 h-5 inline-block mr-2" />
                 Submission
               </button>
+              <button
+                onClick={() => setActiveTab('appeals')}
+                className={`px-6 py-3 font-bold transition-colors border-b-2 ${
+                  activeTab === 'appeals'
+                    ? 'border-modex-secondary text-modex-secondary'
+                    : 'border-transparent text-gray-600 hover:text-modex-primary'
+                }`}
+              >
+                <Scale className="w-5 h-5 inline-block mr-2" />
+                Appeals
+              </button>
             </div>
           </div>
 
