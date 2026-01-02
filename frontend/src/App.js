@@ -181,6 +181,22 @@ function App() {
             }
           />
           <Route
+            path="/talent/offers"
+            element={
+              <ProtectedRoute>
+                <TalentOffers />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/talent/settings"
+            element={
+              <ProtectedRoute>
+                <TalentSettings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/talent/:userId"
             element={
               <ProtectedRoute>
