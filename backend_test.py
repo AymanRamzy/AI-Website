@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Phase 2-4 Multi-Level Competition Engine Backend API Testing Suite
-Tests admin task management, scoring criteria, judge endpoints, and participant task endpoints
+Phase 5-10 Multi-Level Competition Engine Backend API Testing Suite
+Tests task submissions, judge workflow, leaderboards, certificates, integrity, and operations
 """
 
 import requests
@@ -13,10 +13,12 @@ from typing import Dict, Any, Optional
 
 # Configuration
 BASE_URL = "https://financialchallenge.preview.emergentagent.com"
-API_BASE = f"{BASE_URL}/api/cfo"
+API_BASE = f"{BASE_URL}/api"
+CFO_API_BASE = f"{BASE_URL}/api/cfo"
 ADMIN_API_BASE = f"{BASE_URL}/api/admin"
+JUDGE_API_BASE = f"{BASE_URL}/api/judge"
 
-class Phase24APITester:
+class Phase510APITester:
     def __init__(self):
         self.session = requests.Session()
         self.admin_token = None
