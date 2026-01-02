@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import AdminTeamChat from '../components/AdminTeamChat';
 import AdminLevelManager from '../components/AdminLevelManager';
+import AdminTeamObserver from '../components/AdminTeamObserver';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || '';
 
