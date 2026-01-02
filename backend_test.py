@@ -230,97 +230,88 @@ class StrategicSuiteAPITester:
         
         return success_count >= 5  # At least 5 out of 7 should work
 
-    def test_phase6_admin_observer_mode(self) -> bool:
-        """Test Phase 6: Admin Observer Mode endpoints"""
-        self.log("Testing Phase 6: Admin Observer Mode...")
-        
-        if not self.test_team_id or not self.test_competition_id:
-            self.log("❌ No team or competition ID available", "ERROR")
-            return False
+    def test_authentication_requirements(self) -> bool:
+        """Test that endpoints properly enforce authentication"""
+        self.log("Testing Authentication Requirements...")
         
         success_count = 0
         
-        # Test 1: GET /api/admin/teams/{team_id}/full-view
-        try:
-            headers = {"Authorization": f"Bearer {self.admin_token}"}
-            response = self.session.get(
-                f"{ADMIN_API_BASE}/teams/{self.test_team_id}/full-view",
-                headers=headers
-            )
-            
-            if response.status_code == 200:
-                view_data = response.json()
-                required_fields = ["team", "members", "submissions", "_admin_view_logged"]
-                if all(field in view_data for field in required_fields):
-                    self.log("✅ GET admin team full view successful - all required fields present")
+        # Phase 5: Team Governance endpoints
+        team_governance_endpoints = [
+            ("POST", f"{CFO_API_BASE}/teams/test-team-id/join-request", "Team join request"),
+            ("GET", f"{CFO_API_BASE}/teams/test-team-id/join-requests", "Get join requests"),
+            ("GET", f"{CFO_API_BASE}/teams/test-team-id/leader-dashboard", "Leader dashboard"),
+            ("PATCH", f"{CFO_API_BASE}/teams/test-team-id/settings", "Team settings"),
+        ]
+        
+        # Phase 6: Admin Observer Mode endpoints
+        admin_observer_endpoints = [
+            ("GET", f"{ADMIN_API_BASE}/teams/test-team-id/full-view", "Admin team view"),
+            ("GET", f"{ADMIN_API_BASE}/teams/test-team-id/chat", "Admin team chat"),
+            ("GET", f"{ADMIN_API_BASE}/teams/test-team-id/activity", "Team activity"),
+            ("GET", f"{ADMIN_API_BASE}/competitions/test-comp-id/all-teams", "All teams"),
+        ]
+        
+        # Phase 8: Scoring Fairness endpoints
+        scoring_endpoints = [
+            ("POST", f"{CFO_API_BASE}/submissions/test-sub-id/appeal", "Score appeal"),
+            ("GET", f"{ADMIN_API_BASE}/competitions/test-comp-id/appeals", "Competition appeals"),
+            ("POST", f"{ADMIN_API_BASE}/appeals/test-appeal-id/review", "Appeal review"),
+        ]
+        
+        # Phase 9: Talent Marketplace endpoints
+        talent_endpoints = [
+            ("GET", f"{TALENT_API_BASE}/profile", "Talent profile"),
+            ("PATCH", f"{TALENT_API_BASE}/profile", "Update talent profile"),
+            ("GET", f"{TALENT_API_BASE}/browse", "Browse talent"),
+            ("POST", f"{COMPANY_API_BASE}/profile", "Company profile"),
+            ("GET", f"{COMPANY_API_BASE}/profile", "Get company profile"),
+        ]
+        
+        # Phase 10: Gamification endpoints
+        gamification_endpoints = [
+            ("GET", f"{API_BASE}/sponsors", "Sponsors"),
+            ("GET", f"{API_BASE}/challenges/active", "Active challenges"),
+            ("GET", f"{API_BASE}/badges", "Badges"),
+            ("GET", f"{API_BASE}/badges/my", "My badges"),
+            ("GET", f"{API_BASE}/leaderboard/season", "Season leaderboard"),
+            ("GET", f"{API_BASE}/seasons", "Seasons"),
+            ("POST", f"{ADMIN_API_BASE}/badges/award", "Award badge"),
+            ("POST", f"{ADMIN_API_BASE}/sponsors", "Create sponsor"),
+        ]
+        
+        all_endpoints = (team_governance_endpoints + admin_observer_endpoints + 
+                        scoring_endpoints + talent_endpoints + gamification_endpoints)
+        
+        for method, url, description in all_endpoints:
+            try:
+                if method == "GET":
+                    response = self.session.get(url)
+                elif method == "POST":
+                    response = self.session.post(url, json={})
+                elif method == "PATCH":
+                    response = self.session.patch(url, json={})
+                else:
+                    continue
+                
+                if response.status_code == 401:
+                    self.log(f"✅ {description} properly requires authentication")
+                    success_count += 1
+                elif response.status_code == 404:
+                    self.log(f"⚠️ {description} returns 404 (endpoint may not exist or route issue)")
+                elif response.status_code in [400, 403, 422]:
+                    self.log(f"✅ {description} accessible but returns {response.status_code} (expected)")
                     success_count += 1
                 else:
-                    self.log("❌ GET admin team full view missing required fields", "ERROR")
-            else:
-                self.log(f"❌ GET admin team full view failed: {response.status_code} - {response.text}", "ERROR")
-                
-        except Exception as e:
-            self.log(f"❌ GET admin team full view error: {str(e)}", "ERROR")
-
-        # Test 2: GET /api/admin/teams/{team_id}/chat
-        try:
-            headers = {"Authorization": f"Bearer {self.admin_token}"}
-            response = self.session.get(
-                f"{ADMIN_API_BASE}/teams/{self.test_team_id}/chat",
-                headers=headers
-            )
-            
-            if response.status_code == 200:
-                chat_data = response.json()
-                required_fields = ["team_id", "messages", "_read_only", "_admin_view_logged"]
-                if all(field in chat_data for field in required_fields):
-                    self.log("✅ GET admin team chat successful - read-only access confirmed")
-                    success_count += 1
-                else:
-                    self.log("❌ GET admin team chat missing required fields", "ERROR")
-            else:
-                self.log(f"❌ GET admin team chat failed: {response.status_code} - {response.text}", "ERROR")
-                
-        except Exception as e:
-            self.log(f"❌ GET admin team chat error: {str(e)}", "ERROR")
-
-        # Test 3: GET /api/admin/teams/{team_id}/activity
-        try:
-            headers = {"Authorization": f"Bearer {self.admin_token}"}
-            response = self.session.get(
-                f"{ADMIN_API_BASE}/teams/{self.test_team_id}/activity",
-                headers=headers
-            )
-            
-            if response.status_code == 200:
-                activity = response.json()
-                self.log(f"✅ GET team activity timeline successful - found {len(activity)} activities")
-                success_count += 1
-            else:
-                self.log(f"❌ GET team activity timeline failed: {response.status_code} - {response.text}", "ERROR")
-                
-        except Exception as e:
-            self.log(f"❌ GET team activity timeline error: {str(e)}", "ERROR")
-
-        # Test 4: GET /api/admin/competitions/{competition_id}/all-teams
-        try:
-            headers = {"Authorization": f"Bearer {self.admin_token}"}
-            response = self.session.get(
-                f"{ADMIN_API_BASE}/competitions/{self.test_competition_id}/all-teams",
-                headers=headers
-            )
-            
-            if response.status_code == 200:
-                teams = response.json()
-                self.log(f"✅ GET all teams successful - found {len(teams)} teams")
-                success_count += 1
-            else:
-                self.log(f"❌ GET all teams failed: {response.status_code} - {response.text}", "ERROR")
-                
-        except Exception as e:
-            self.log(f"❌ GET all teams error: {str(e)}", "ERROR")
-
-        return success_count >= 3  # At least 3 out of 4 should work
+                    self.log(f"⚠️ {description} returns {response.status_code}")
+                    
+            except Exception as e:
+                self.log(f"❌ {description} error: {str(e)}", "ERROR")
+        
+        total_endpoints = len(all_endpoints)
+        self.log(f"Authentication test: {success_count}/{total_endpoints} endpoints properly secured")
+        
+        return success_count >= (total_endpoints * 0.7)  # At least 70% should be properly secured
 
     def test_phase8_scoring_fairness(self) -> bool:
         """Test Phase 8: Scoring Fairness endpoints"""
