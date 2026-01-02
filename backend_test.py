@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Phase 5-10 Multi-Level Competition Engine Backend API Testing Suite
-Tests task submissions, judge workflow, leaderboards, certificates, integrity, and operations
+Phase 5-10 Strategic Enhancement Suite Backend API Testing Suite
+Tests Team Governance, Admin Observer Mode, Scoring Fairness, Talent Marketplace, and Gamification
 """
 
 import requests
@@ -16,9 +16,10 @@ BASE_URL = "https://financialchallenge.preview.emergentagent.com"
 API_BASE = f"{BASE_URL}/api"
 CFO_API_BASE = f"{BASE_URL}/api/cfo"
 ADMIN_API_BASE = f"{BASE_URL}/api/admin"
-JUDGE_API_BASE = f"{BASE_URL}/api/judge"
+TALENT_API_BASE = f"{BASE_URL}/api/talent"
+COMPANY_API_BASE = f"{BASE_URL}/api/company"
 
-class Phase510APITester:
+class StrategicSuiteAPITester:
     def __init__(self):
         self.session = requests.Session()
         self.session.headers.update({'Content-Type': 'application/json'})
