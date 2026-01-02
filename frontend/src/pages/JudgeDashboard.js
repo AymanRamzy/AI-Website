@@ -509,32 +509,41 @@ function JudgeDashboard() {
                       placeholder="Provide overall comments and recommendations for the team..."
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-modex-secondary focus:outline-none resize-none"
                       rows="4"
+                      disabled={scoringLocked}
                     />
                   </div>
 
                   {/* Action Buttons */}
-                  <div className="flex justify-end space-x-4">
-                    <button
-                      onClick={() => handleSaveScores(false)}
-                      disabled={submitting}
-                      className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 disabled:opacity-50 flex items-center"
-                    >
-                      <Save className="w-4 h-4 mr-2" />
-                      Save Draft
-                    </button>
-                    <button
-                      onClick={() => handleSaveScores(true)}
-                      disabled={submitting}
-                      className="px-6 py-3 bg-modex-secondary text-white rounded-lg font-semibold hover:bg-modex-primary disabled:opacity-50 flex items-center"
-                    >
-                      {submitting ? (
-                        <Loader className="w-4 h-4 mr-2 animate-spin" />
-                      ) : (
-                        <Send className="w-4 h-4 mr-2" />
-                      )}
-                      Submit Final Scores
-                    </button>
-                  </div>
+                  {scoringLocked ? (
+                    <div className="bg-gray-100 rounded-lg p-4 text-center">
+                      <Lock className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                      <p className="text-gray-600 font-medium">Scoring is finalized and locked</p>
+                      <p className="text-sm text-gray-500">You can view scores but cannot make changes</p>
+                    </div>
+                  ) : (
+                    <div className="flex justify-end space-x-4">
+                      <button
+                        onClick={() => handleSaveScores(false)}
+                        disabled={submitting}
+                        className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 disabled:opacity-50 flex items-center"
+                      >
+                        <Save className="w-4 h-4 mr-2" />
+                        Save Draft
+                      </button>
+                      <button
+                        onClick={() => handleSaveScores(true)}
+                        disabled={submitting}
+                        className="px-6 py-3 bg-modex-secondary text-white rounded-lg font-semibold hover:bg-modex-primary disabled:opacity-50 flex items-center"
+                      >
+                        {submitting ? (
+                          <Loader className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                          <Send className="w-4 h-4 mr-2" />
+                        )}
+                        Submit Final Scores
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
