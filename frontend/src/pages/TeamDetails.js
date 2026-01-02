@@ -465,6 +465,11 @@ function TeamDetails() {
                 </p>
               </div>
             )}
+
+            {/* Activity Timeline Section */}
+            <div className="mt-6">
+              <TeamActivityTimeline teamId={teamId} isAdmin={false} />
+            </div>
             </div>
           )}
 
