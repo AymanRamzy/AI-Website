@@ -696,6 +696,45 @@ function AdminDashboard() {
         </div>
       )}
 
+        {/* Levels & Tasks Tab */}
+        {activeTab === 'levels' && (
+          <div className="space-y-6">
+            {/* Competition Selector for Level Management */}
+            <div className="bg-gray-800 rounded-lg p-6">
+              <h3 className="text-lg font-medium text-white mb-4 flex items-center">
+                <Layers className="w-5 h-5 mr-2 text-blue-400" />
+                Select Competition to Manage Levels
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {competitions.map(comp => (
+                  <button
+                    key={comp.id}
+                    onClick={() => setLevelManagerComp(comp)}
+                    className={`text-left px-4 py-3 rounded-lg border-2 transition-all ${
+                      levelManagerComp?.id === comp.id
+                        ? 'border-blue-500 bg-blue-500/10'
+                        : 'border-gray-600 hover:border-gray-500 bg-gray-700/50'
+                    }`}
+                  >
+                    <div className="font-medium text-white">{comp.title}</div>
+                    <div className="text-sm text-gray-400">
+                      Level {comp.current_level || 1} • {comp.status}
+                    </div>
+                  </button>
+                ))}
+              </div>
+              {competitions.length === 0 && (
+                <p className="text-gray-400 text-center py-4">No competitions found. Create one first.</p>
+              )}
+            </div>
+
+            {/* Level Manager Component */}
+            {levelManagerComp && (
+              <AdminLevelManager competition={levelManagerComp} />
+            )}
+          </div>
+        )}
+
         {/* Team Chats Tab */}
         {activeTab === 'team-chats' && (
           <AdminTeamChat />
