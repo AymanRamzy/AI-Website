@@ -85,13 +85,34 @@ function TalentMarketplace() {
       {/* Header */}
       <div className="bg-gradient-to-r from-modex-secondary to-modex-accent text-white">
         <div className="max-w-7xl mx-auto px-4 py-12">
-          <div className="flex items-center mb-4">
-            <Users className="w-10 h-10 mr-3" />
-            <h1 className="text-4xl font-bold">Talent Marketplace</h1>
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="flex items-center mb-4">
+                <Users className="w-10 h-10 mr-3" />
+                <h1 className="text-4xl font-bold">Talent Marketplace</h1>
+              </div>
+              <p className="text-lg opacity-90">
+                Discover top CFO talent. FIFA-style transfer market for finance professionals.
+              </p>
+            </div>
+            {/* Quick Actions */}
+            <div className="flex items-center space-x-4">
+              <Link
+                to="/talent/offers"
+                className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg flex items-center font-medium"
+              >
+                <Mail className="w-5 h-5 mr-2" />
+                My Offers
+              </Link>
+              <Link
+                to="/talent/settings"
+                className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg flex items-center font-medium"
+              >
+                <Settings className="w-5 h-5 mr-2" />
+                My Profile
+              </Link>
+            </div>
           </div>
-          <p className="text-lg opacity-90">
-            Discover top CFO talent. FIFA-style transfer market for finance professionals.
-          </p>
         </div>
       </div>
 
