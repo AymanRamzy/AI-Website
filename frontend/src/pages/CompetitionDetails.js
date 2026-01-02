@@ -141,34 +141,80 @@ function CompetitionDetails() {
     });
   };
 
+  /**
+   * PHASE A FIX: Registration check driven ONLY by server-side flags
+   * ❌ Do NOT infer from dates, labels, or assumptions
+   * ✅ Use ONLY statusFlags.registration_open from /status endpoint
+   */
   const isRegistrationOpen = () => {
-    if (!competition) return false;
-    if (competition.status !== 'open') return false;
-    return true;
+    // SINGLE SOURCE OF TRUTH: Server-side flag
+    return statusFlags?.registration_open === true;
   };
 
-  const getStatusBadge = (status) => {
-    const statusColors = {
-      draft: 'bg-gray-100 text-gray-800',
-      open: 'bg-green-100 text-green-800',
-      closed: 'bg-red-100 text-red-800',
+  /**
+   * PHASE A FIX: Status badge driven by server-side status flags
+   * Maps server status to user-friendly display
+   */
+  const getStatusBadge = () => {
+    if (!statusFlags) {
+      return (
+        <span className="px-4 py-2 rounded-full text-sm font-bold bg-gray-100 text-gray-800">
+          Loading...
+        </span>
+      );
+    }
+
+    // Priority: Check explicit flags first, then status
+    if (statusFlags.registration_open) {
+      return (
+        <span className="px-4 py-2 rounded-full text-sm font-bold bg-green-100 text-green-800">
+          Registration Open
+        </span>
+      );
+    }
+
+    // Map server status to display
+    const statusMap = {
+      draft: { label: 'Not Open Yet', color: 'bg-gray-100 text-gray-800' },
+      registration: { label: 'Registration Open', color: 'bg-green-100 text-green-800' },
+      active: { label: 'Competition Ongoing', color: 'bg-blue-100 text-blue-800' },
+      judging: { label: 'Judging In Progress', color: 'bg-yellow-100 text-yellow-800' },
+      completed: { label: 'Completed', color: 'bg-gray-100 text-gray-800' },
+      open: { label: 'Open', color: 'bg-green-100 text-green-800' },
+      closed: { label: 'Closed', color: 'bg-red-100 text-red-800' }
     };
 
-    const statusLabels = {
-      draft: 'Draft',
-      open: 'open',
-      closed: 'Closed',
+    const statusInfo = statusMap[statusFlags.status] || { 
+      label: statusFlags.status || 'Unknown', 
+      color: 'bg-gray-100 text-gray-800' 
     };
 
     return (
-      <span
-        className={`px-4 py-2 rounded-full text-sm font-bold ${
-          statusColors[status] || 'bg-gray-100 text-gray-800'
-        }`}
-      >
-        {statusLabels[status] || status}
+      <span className={`px-4 py-2 rounded-full text-sm font-bold ${statusInfo.color}`}>
+        {statusInfo.label}
       </span>
     );
+  };
+
+  /**
+   * PHASE A FIX: Get status-aware error message for registration
+   */
+  const getRegistrationClosedReason = () => {
+    if (!statusFlags) return 'Registration is not available.';
+    
+    if (statusFlags.status === 'active') {
+      return 'Registration is closed because the competition has already started.';
+    }
+    if (statusFlags.status === 'completed' || statusFlags.status === 'closed') {
+      return 'Registration is closed because the competition has ended.';
+    }
+    if (statusFlags.status === 'judging') {
+      return 'Registration is closed. The competition is in the judging phase.';
+    }
+    if (statusFlags.status === 'draft') {
+      return 'Registration has not opened yet. Please check back later.';
+    }
+    return 'Registration is currently closed for this competition.';
   };
 
   if (loading) {
