@@ -12,7 +12,7 @@ from typing import Dict, Any, Optional
 import time
 
 # Configuration
-BASE_URL = "https://financialchallenge.preview.emergentagent.com"
+BASE_URL = "https://cfo-modex.preview.emergentagent.com"
 API_BASE = f"{BASE_URL}/api"
 CFO_API = f"{API_BASE}/cfo"
 ADMIN_API = f"{API_BASE}/admin"

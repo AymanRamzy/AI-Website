@@ -9,7 +9,7 @@ from datetime import datetime
 
 class TeamSubmissionTester:
     def __init__(self):
-        self.base_url = "https://financialchallenge.preview.emergentagent.com"
+        self.base_url = "https://cfo-modex.preview.emergentagent.com"
         self.api_base = f"{self.base_url}/api/cfo"
         self.token = None
         self.team_id = None

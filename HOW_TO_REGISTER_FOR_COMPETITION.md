@@ -3,7 +3,7 @@
 ## ✅ STEP-BY-STEP GUIDE
 
 ### Step 1: Login to Your Account
-1. Go to: https://financialchallenge.preview.emergentagent.com/login
+1. Go to: https://cfo-modex.preview.emergentagent.com/login
 2. Enter your credentials:
    - **Email:** `frontendtest@modex.com`
    - **Password:** `TestPass123!`

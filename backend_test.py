@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 from typing import Dict, Any, Optional
 
 # Configuration
-BASE_URL = "https://financialchallenge.preview.emergentagent.com"
+BASE_URL = "https://cfo-modex.preview.emergentagent.com"
 API_BASE = f"{BASE_URL}/api"
 CFO_API_BASE = f"{BASE_URL}/api/cfo"
 ADMIN_API_BASE = f"{BASE_URL}/api/admin"

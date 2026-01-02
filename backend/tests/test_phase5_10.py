@@ -13,7 +13,7 @@ import hashlib
 from datetime import datetime
 
 # Configuration
-BASE_URL = "https://financialchallenge.preview.emergentagent.com"
+BASE_URL = "https://cfo-modex.preview.emergentagent.com"
 API_URL = f"{BASE_URL}/api"
 
 class TestRunner:
