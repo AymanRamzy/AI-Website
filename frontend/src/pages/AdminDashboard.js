@@ -1,7 +1,7 @@
 /**
  * AdminDashboard - Admin management interface
  * SECURITY HARDENED: Cookie-based authentication (P0 Frontend Integration)
- * ENHANCED: Case file upload + Timer configuration
+ * ENHANCED: Case file upload + Timer configuration + Level Management (Phase 2-4)
  */
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
@@ -9,9 +9,10 @@ import { useAuth } from '../context/AuthContext';
 import { 
   Upload, FileText, Clock, Trash2, Download, 
   Calendar, AlertCircle, CheckCircle, Loader,
-  Settings, X, MessageCircle
+  Settings, X, MessageCircle, Layers
 } from 'lucide-react';
 import AdminTeamChat from '../components/AdminTeamChat';
+import AdminLevelManager from '../components/AdminLevelManager';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || '';
 
