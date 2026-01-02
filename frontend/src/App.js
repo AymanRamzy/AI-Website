@@ -26,6 +26,8 @@ import CFOApplicationDetail from './pages/CFOApplicationDetail';
 import JudgeDashboard from './pages/JudgeDashboard';
 import TalentMarketplace from './pages/TalentMarketplace';
 import TalentProfile from './pages/TalentProfile';
+import TalentOffers from './pages/TalentOffers';
+import TalentSettings from './pages/TalentSettings';
 import SeasonLeaderboard from './pages/SeasonLeaderboard';
 import SponsorChallenges from './pages/SponsorChallenges';
 import AuthConfirm from './pages/AuthConfirm';
