@@ -870,3 +870,362 @@ async def send_admin_message(
     except Exception as e:
         logger.error(f"Admin chat error: {e}")
         raise HTTPException(status_code=500, detail="Failed to send message")
+
+
+# =========================================================
+# COMPETITION TASKS MANAGEMENT (PHASE 1 - MODULE 2)
+# =========================================================
+
+@router.get("/competitions/{competition_id}/tasks")
+async def get_competition_tasks(
+    competition_id: str,
+    current_user: User = Depends(get_admin_user)
+):
+    """Get all tasks for a competition (admin only)."""
+    supabase = get_supabase_client()
+    
+    result = supabase.table("tasks")\
+        .select("*")\
+        .eq("competition_id", competition_id)\
+        .order("order_index")\
+        .execute()
+    
+    return result.data or []
+
+
+@router.post("/competitions/{competition_id}/tasks")
+async def create_task(
+    competition_id: str,
+    task: TaskCreate,
+    current_user: User = Depends(get_admin_user)
+):
+    """Create a new task for a competition."""
+    supabase = get_supabase_client()
+    
+    # Verify competition exists
+    comp = supabase.table("competitions").select("id").eq("id", competition_id).execute()
+    if not comp.data:
+        raise HTTPException(status_code=404, detail="Competition not found")
+    
+    task_dict = {
+        "competition_id": competition_id,
+        "title": task.title,
+        "description": task.description,
+        "task_type": task.task_type or "submission",
+        "max_points": task.max_points or 100,
+        "deadline": task.deadline.isoformat() if task.deadline else None,
+        "order_index": task.order_index or 0,
+        "is_active": True,
+        "created_by": current_user.id
+    }
+    
+    result = supabase.table("tasks").insert(task_dict).execute()
+    
+    if not result.data:
+        raise HTTPException(status_code=500, detail="Failed to create task")
+    
+    return result.data[0]
+
+
+@router.patch("/competitions/{competition_id}/tasks/{task_id}")
+async def update_task(
+    competition_id: str,
+    task_id: str,
+    updates: dict,
+    current_user: User = Depends(get_admin_user)
+):
+    """Update a task."""
+    supabase = get_supabase_client()
+    
+    # Verify task belongs to competition
+    existing = supabase.table("tasks")\
+        .select("id")\
+        .eq("id", task_id)\
+        .eq("competition_id", competition_id)\
+        .execute()
+    
+    if not existing.data:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    # Filter allowed fields
+    allowed_fields = ["title", "description", "task_type", "max_points", "deadline", "order_index", "is_active"]
+    update_data = {k: v for k, v in updates.items() if k in allowed_fields}
+    
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No valid fields to update")
+    
+    result = supabase.table("tasks").update(update_data).eq("id", task_id).execute()
+    
+    return result.data[0] if result.data else {"success": True}
+
+
+@router.delete("/competitions/{competition_id}/tasks/{task_id}")
+async def delete_task(
+    competition_id: str,
+    task_id: str,
+    current_user: User = Depends(get_admin_user)
+):
+    """Delete a task (only if no submissions exist)."""
+    supabase = get_supabase_client()
+    
+    # Check for existing submissions
+    submissions = supabase.table("submissions")\
+        .select("id")\
+        .eq("task_id", task_id)\
+        .execute()
+    
+    if submissions.data:
+        raise HTTPException(
+            status_code=400, 
+            detail="Cannot delete task with existing submissions"
+        )
+    
+    supabase.table("tasks").delete().eq("id", task_id).execute()
+    
+    return {"success": True, "message": "Task deleted"}
+
+
+# =========================================================
+# JUDGING & SCORING (PHASE 1 - MODULE 3)
+# =========================================================
+
+@router.get("/competitions/{competition_id}/submissions")
+async def get_all_submissions(
+    competition_id: str,
+    current_user: User = Depends(get_admin_user)
+):
+    """Get all submissions for a competition (admin view)."""
+    supabase = get_supabase_client()
+    
+    # Get all tasks for this competition
+    tasks = supabase.table("tasks")\
+        .select("id, title")\
+        .eq("competition_id", competition_id)\
+        .execute()
+    
+    task_ids = [t["id"] for t in (tasks.data or [])]
+    
+    if not task_ids:
+        return []
+    
+    # Get submissions with team info
+    submissions = supabase.table("submissions")\
+        .select("*, teams(id, team_name)")\
+        .in_("task_id", task_ids)\
+        .order("submitted_at", desc=True)\
+        .execute()
+    
+    return submissions.data or []
+
+
+@router.post("/submissions/{submission_id}/score")
+async def score_submission(
+    submission_id: str,
+    score_data: dict,
+    current_user: User = Depends(get_admin_user)
+):
+    """
+    Judge scores a submission.
+    score_data: {
+        criteria_scores: {"criterion1": 25, "criterion2": 30, ...},
+        total_score: 85,
+        feedback: "Optional feedback text",
+        is_final: false
+    }
+    """
+    supabase = get_supabase_client()
+    
+    # Verify submission exists
+    submission = supabase.table("submissions")\
+        .select("id, task_id")\
+        .eq("id", submission_id)\
+        .execute()
+    
+    if not submission.data:
+        raise HTTPException(status_code=404, detail="Submission not found")
+    
+    # Check if judge already scored this submission
+    existing_score = supabase.table("scores")\
+        .select("id")\
+        .eq("submission_id", submission_id)\
+        .eq("judge_id", current_user.id)\
+        .execute()
+    
+    score_dict = {
+        "submission_id": submission_id,
+        "judge_id": current_user.id,
+        "criteria_scores": score_data.get("criteria_scores", {}),
+        "total_score": score_data.get("total_score", 0),
+        "feedback": score_data.get("feedback", ""),
+        "is_final": score_data.get("is_final", False),
+        "scored_at": datetime.utcnow().isoformat()
+    }
+    
+    if existing_score.data:
+        # Update existing score
+        result = supabase.table("scores")\
+            .update(score_dict)\
+            .eq("id", existing_score.data[0]["id"])\
+            .execute()
+    else:
+        # Insert new score
+        result = supabase.table("scores").insert(score_dict).execute()
+    
+    if not result.data:
+        raise HTTPException(status_code=500, detail="Failed to save score")
+    
+    return result.data[0]
+
+
+@router.get("/submissions/{submission_id}/scores")
+async def get_submission_scores(
+    submission_id: str,
+    current_user: User = Depends(get_admin_user)
+):
+    """Get all judge scores for a submission."""
+    supabase = get_supabase_client()
+    
+    result = supabase.table("scores")\
+        .select("*, user_profiles(full_name)")\
+        .eq("submission_id", submission_id)\
+        .execute()
+    
+    return result.data or []
+
+
+# =========================================================
+# LEADERBOARD (PHASE 1 - MODULE 4)
+# =========================================================
+
+@router.get("/competitions/{competition_id}/leaderboard")
+async def get_leaderboard(
+    competition_id: str,
+    current_user: User = Depends(get_admin_user)
+):
+    """
+    Get competition leaderboard with aggregated scores.
+    Tie-break: Higher total score wins. If tied, earlier submission time wins.
+    """
+    supabase = get_supabase_client()
+    
+    # Get all teams for this competition
+    teams = supabase.table("teams")\
+        .select("id, team_name, leader_id")\
+        .eq("competition_id", competition_id)\
+        .execute()
+    
+    if not teams.data:
+        return []
+    
+    # Get all tasks for scoring weight
+    tasks = supabase.table("tasks")\
+        .select("id, title, max_points")\
+        .eq("competition_id", competition_id)\
+        .eq("is_active", True)\
+        .execute()
+    
+    task_map = {t["id"]: t for t in (tasks.data or [])}
+    
+    # Calculate scores for each team
+    leaderboard = []
+    
+    for team in teams.data:
+        team_id = team["id"]
+        
+        # Get all submissions for this team
+        submissions = supabase.table("submissions")\
+            .select("id, task_id, submitted_at")\
+            .eq("team_id", team_id)\
+            .execute()
+        
+        total_score = 0
+        tasks_completed = 0
+        earliest_submission = None
+        
+        for sub in (submissions.data or []):
+            # Get average score from all judges
+            scores = supabase.table("scores")\
+                .select("total_score")\
+                .eq("submission_id", sub["id"])\
+                .eq("is_final", True)\
+                .execute()
+            
+            if scores.data:
+                avg_score = sum(s["total_score"] for s in scores.data) / len(scores.data)
+                total_score += avg_score
+                tasks_completed += 1
+            
+            # Track earliest submission for tie-break
+            sub_time = sub.get("submitted_at")
+            if sub_time:
+                if earliest_submission is None or sub_time < earliest_submission:
+                    earliest_submission = sub_time
+        
+        leaderboard.append({
+            "team_id": team_id,
+            "team_name": team["team_name"],
+            "total_score": round(total_score, 2),
+            "tasks_completed": tasks_completed,
+            "total_tasks": len(task_map),
+            "earliest_submission": earliest_submission
+        })
+    
+    # Sort by total_score (desc), then by earliest_submission (asc) for tie-break
+    leaderboard.sort(key=lambda x: (-x["total_score"], x["earliest_submission"] or "9999"))
+    
+    # Add rank
+    for i, entry in enumerate(leaderboard):
+        entry["rank"] = i + 1
+    
+    return leaderboard
+
+
+# =========================================================
+# ADMIN STAGE CONTROL (PHASE 1 - MODULE 5)
+# =========================================================
+
+@router.post("/competitions/{competition_id}/lock-submissions")
+async def lock_submissions(
+    competition_id: str,
+    current_user: User = Depends(get_admin_user)
+):
+    """Lock all submissions for a competition (after deadline)."""
+    supabase = get_supabase_client()
+    
+    # Update competition status
+    supabase.table("competitions")\
+        .update({"status": "judging"})\
+        .eq("id", competition_id)\
+        .execute()
+    
+    # Get all tasks and mark submissions as locked
+    tasks = supabase.table("tasks")\
+        .select("id")\
+        .eq("competition_id", competition_id)\
+        .execute()
+    
+    task_ids = [t["id"] for t in (tasks.data or [])]
+    
+    if task_ids:
+        supabase.table("submissions")\
+            .update({"status": "locked"})\
+            .in_("task_id", task_ids)\
+            .execute()
+    
+    return {"success": True, "message": "Submissions locked"}
+
+
+@router.post("/competitions/{competition_id}/publish-results")
+async def publish_results(
+    competition_id: str,
+    current_user: User = Depends(get_admin_user)
+):
+    """Publish competition results (makes leaderboard public)."""
+    supabase = get_supabase_client()
+    
+    supabase.table("competitions")\
+        .update({"status": "completed", "results_published": True})\
+        .eq("id", competition_id)\
+        .execute()
+    
+    return {"success": True, "message": "Results published"}
