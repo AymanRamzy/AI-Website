@@ -2549,13 +2549,6 @@ async def get_public_leaderboard(
     if not teams.data:
         return {"leaderboard": []}
     
-    # Get task count for reference (used for validation)
-    task_count = supabase.table("tasks")\
-        .select("id", count="exact")\
-        .eq("competition_id", competition_id)\
-        .eq("is_active", True)\
-        .execute()
-    
     leaderboard = []
     
     for team in teams.data:
