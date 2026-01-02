@@ -2360,23 +2360,36 @@ async def submit_task(
     logger = logging.getLogger(__name__)
     supabase = get_supabase_client()
     
-    # Get task details
+    # Get task details with competition info
     task = supabase.table("tasks")\
-        .select("*, competitions(id, status)")\
+        .select("*, competitions(*)")\
         .eq("id", task_id)\
         .execute()
     
     if not task.data:
-        raise HTTPException(status_code=404, detail="Task not found")
+        raise HTTPException(status_code=404, detail=CompetitionErrors.TASK_NOT_FOUND)
     
     task_data = task.data[0]
     competition_id = task_data["competition_id"]
+    competition = task_data.get("competitions", {})
     
-    # Check deadline
+    # PHASE 1.5: Check competition status flags
+    status_flags = get_competition_status_flags(competition)
+    
+    if status_flags["submissions_locked"]:
+        raise HTTPException(status_code=403, detail=CompetitionErrors.SUBMISSIONS_LOCKED)
+    
+    if not status_flags["submission_open"]:
+        raise HTTPException(status_code=403, detail=CompetitionErrors.SUBMISSION_CLOSED)
+    
+    # Check task-specific deadline
     if task_data.get("deadline"):
-        deadline = datetime.fromisoformat(task_data["deadline"].replace("Z", "+00:00"))
-        if datetime.now(deadline.tzinfo) > deadline:
-            raise HTTPException(status_code=400, detail="Submission deadline has passed")
+        try:
+            deadline = datetime.fromisoformat(task_data["deadline"].replace("Z", "+00:00"))
+            if datetime.now(deadline.tzinfo) > deadline:
+                raise HTTPException(status_code=403, detail=CompetitionErrors.DEADLINE_PASSED)
+        except ValueError:
+            pass  # If deadline parsing fails, proceed
     
     # Get user's team for this competition
     membership = supabase.table("team_members")\
@@ -2391,9 +2404,9 @@ async def submit_task(
             break
     
     if not team_id:
-        raise HTTPException(status_code=400, detail="You must be in a team to submit")
+        raise HTTPException(status_code=403, detail=CompetitionErrors.NOT_IN_TEAM)
     
-    # Check for existing submission
+    # Check for existing submission (DB constraint will also prevent duplicates)
     existing = supabase.table("submissions")\
         .select("id, status")\
         .eq("task_id", task_id)\
@@ -2401,7 +2414,7 @@ async def submit_task(
         .execute()
     
     if existing.data and existing.data[0].get("status") == "locked":
-        raise HTTPException(status_code=400, detail="Submission is locked and cannot be modified")
+        raise HTTPException(status_code=403, detail=CompetitionErrors.SUBMISSIONS_LOCKED)
     
     # Upload file
     file_content = await file.read()
