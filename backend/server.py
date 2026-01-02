@@ -70,6 +70,7 @@ app.include_router(cfo_router)
 app.include_router(admin_router)
 app.include_router(chat_router)
 app.include_router(phase5_10_router)  # Phase 5-10: Multi-Level Engine
+app.include_router(strategic_router)   # Phase 5-10: Strategic Suite (Governance, Talent, Gamification)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
