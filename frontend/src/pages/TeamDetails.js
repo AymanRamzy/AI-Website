@@ -27,6 +27,8 @@ import TeamSubmission from '../components/TeamSubmission';
 import TeamLevelTasks from '../components/TeamLevelTasks';
 import TeamApprovalManager from '../components/TeamApprovalManager';
 import TeamActivityTimeline from '../components/TeamActivityTimeline';
+import ScoreAppealForm from '../components/ScoreAppealForm';
+import TeamAppealsView from '../components/TeamAppealsView';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL || '';
 
