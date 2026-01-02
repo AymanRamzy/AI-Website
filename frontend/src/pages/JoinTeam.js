@@ -190,7 +190,7 @@ function JoinTeam() {
               No Competitions Available
             </h3>
             <p className="text-gray-600 mb-6">
-              You haven't registered for any competitions yet. Please register for a competition first.
+              You haven&apos;t registered for any competitions yet. Please register for a competition first.
             </p>
             <Link
               to="/dashboard"
