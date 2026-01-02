@@ -1187,7 +1187,7 @@ async def health_check():
     
     try:
         # Simple DB check
-        result = supabase.table("competitions").select("id").limit(1).execute()
+        supabase.table("competitions").select("id").limit(1).execute()
         db_ok = True
     except Exception:
         db_ok = False
