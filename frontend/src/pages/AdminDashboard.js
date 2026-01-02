@@ -99,13 +99,13 @@ function AdminDashboard() {
       return;
     }
     fetchStats();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [user, navigate]);
 
   useEffect(() => {
     if (activeTab === 'users') fetchUsers();
     else if (activeTab === 'competitions') fetchCompetitions();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [activeTab]);
 
   // Auto-clear messages
