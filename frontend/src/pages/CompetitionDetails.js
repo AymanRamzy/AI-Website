@@ -289,7 +289,7 @@ function CompetitionDetails() {
                 <h2 className="text-3xl font-bold text-modex-primary mb-2">
                   {competition.title}
                 </h2>
-                {getStatusBadge(competition.status)}
+                {getStatusBadge()}
               </div>
             </div>
             {isRegistered && (
