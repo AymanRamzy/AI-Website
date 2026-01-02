@@ -57,10 +57,30 @@ function CompetitionDetails() {
       const compResponse = await axios.get(`${API_URL}/api/cfo/competitions/${competitionId}`);
       setCompetition(compResponse.data);
 
+      // PHASE A FIX: Fetch server-side status flags (SINGLE SOURCE OF TRUTH)
+      try {
+        const statusResponse = await axios.get(
+          `${API_URL}/api/cfo/competitions/${competitionId}/status`,
+          { withCredentials: true }
+        );
+        setStatusFlags(statusResponse.data);
+      } catch (statusErr) {
+        console.error('Failed to fetch status flags:', statusErr);
+        // Fallback: derive from competition data if status endpoint fails
+        setStatusFlags({
+          registration_open: false,
+          submission_open: false,
+          submissions_locked: true,
+          results_published: false,
+          status: compResponse.data?.status || 'draft'
+        });
+      }
+
       // Check if user is registered
       try {
         const regResponse = await axios.get(
-          `${API_URL}/api/cfo/competitions/${competitionId}/is-registered`
+          `${API_URL}/api/cfo/competitions/${competitionId}/is-registered`,
+          { withCredentials: true }
         );
         setIsRegistered(regResponse.data.is_registered);
       } catch (error) {
