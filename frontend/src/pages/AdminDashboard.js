@@ -40,6 +40,9 @@ function AdminDashboard() {
   const [uploadingCase, setUploadingCase] = useState(false);
   const [loadingCaseFiles, setLoadingCaseFiles] = useState(false);
   const caseFileInputRef = useRef(null);
+  
+  // Level manager state
+  const [levelManagerComp, setLevelManagerComp] = useState(null);
 
   const fetchStats = async () => {
     try {
