@@ -39,6 +39,7 @@ function TeamSubmission({ teamId, competition, team }) {
   const [success, setSuccess] = useState('');
   const [deadlinePassed, setDeadlinePassed] = useState(false);
   const [countdown, setCountdown] = useState(null);
+  const [showAppealForm, setShowAppealForm] = useState(false);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
