@@ -163,6 +163,19 @@ function JoinTeam() {
       </header>
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {/* Success Message - Join Request Submitted */}
+        {successMessage && (
+          <div className="mb-6 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg flex items-start">
+            <CheckCircle className="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" />
+            <div>
+              <span className="font-medium">{successMessage}</span>
+              <p className="text-sm mt-1 text-green-600">
+                The team leader will review your request. You&apos;ll be notified once approved.
+              </p>
+            </div>
+          </div>
+        )}
+
         {error && (
           <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-start">
             <AlertCircle className="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" />
