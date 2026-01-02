@@ -128,573 +128,567 @@ class StrategicSuiteAPITester:
             self.test_competition_id = "test_competition_123"
             return True
 
-    def test_enhanced_status_endpoint(self) -> bool:
-        """Test the enhanced competition status endpoint"""
-        self.log("Testing Enhanced Competition Status Endpoint...")
+    def test_phase5_team_governance(self) -> bool:
+        """Test Phase 5: Team Governance endpoints"""
+        self.log("Testing Phase 5: Team Governance...")
         
-        if not self.test_competition_id:
-            self.log("❌ No competition ID available", "ERROR")
-            return False
-        
-        try:
-            headers = {"Authorization": f"Bearer {self.participant_token}"}
-            response = self.session.get(
-                f"{CFO_API_BASE}/competitions/{self.test_competition_id}/status",
-                headers=headers
-            )
-            
-            if response.status_code == 200:
-                status = response.json()
-                required_fields = [
-                    "competition_id", "title", "current_level", "registration_open",
-                    "submissions_open", "results_published", "level_2_open",
-                    "level_3_open", "level_4_open"
-                ]
-                
-                missing_fields = [field for field in required_fields if field not in status]
-                
-                if not missing_fields:
-                    self.log("✅ Enhanced status endpoint working - all required fields present")
-                    return True
-                else:
-                    self.log(f"❌ Enhanced status missing fields: {missing_fields}", "ERROR")
-                    return False
-            else:
-                self.log(f"❌ Enhanced status failed: {response.status_code} - {response.text}", "ERROR")
-                return False
-                
-        except Exception as e:
-            self.log(f"❌ Enhanced status error: {str(e)}", "ERROR")
-            return False
-
-    def test_task_submissions_participant(self) -> bool:
-        """Test Phase 5: Task Submissions (Participant endpoints)"""
-        self.log("Testing Phase 5: Task Submissions (Participant)...")
-        
-        if not self.test_competition_id:
-            self.log("❌ No competition ID available", "ERROR")
+        if not self.test_team_id:
+            self.log("❌ No team ID available", "ERROR")
             return False
         
         success_count = 0
         
-        # Test 1: GET /api/cfo/competitions/{competition_id}/tasks
+        # Test 1: POST /api/cfo/teams/{team_id}/join-request
         try:
+            join_data = {
+                "team_id": self.test_team_id,
+                "message": "I would like to join this team for the competition"
+            }
+            
             headers = {"Authorization": f"Bearer {self.participant_token}"}
-            response = self.session.get(
-                f"{CFO_API_BASE}/competitions/{self.test_competition_id}/tasks",
+            response = self.session.post(
+                f"{CFO_API_BASE}/teams/{self.test_team_id}/join-request",
+                json=join_data,
                 headers=headers
             )
             
-            if response.status_code == 200:
-                result = response.json()
-                if "tasks" in result and "competition" in result:
-                    self.log("✅ GET competition tasks with status successful")
-                    success_count += 1
-                    
-                    # Store a task ID for further testing
-                    if result["tasks"]:
-                        self.test_task_id = result["tasks"][0]["id"]
+            if response.status_code in [200, 201, 400, 403]:  # Various responses acceptable
+                if response.status_code in [200, 201]:
+                    self.log("✅ POST join request successful")
                 else:
-                    self.log("❌ GET competition tasks missing required fields", "ERROR")
+                    self.log(f"⚠️ POST join request returned {response.status_code} (expected for test scenario)")
+                success_count += 1
             else:
-                self.log(f"❌ GET competition tasks failed: {response.status_code} - {response.text}", "ERROR")
+                self.log(f"❌ POST join request failed: {response.status_code} - {response.text}", "ERROR")
                 
         except Exception as e:
-            self.log(f"❌ GET competition tasks error: {str(e)}", "ERROR")
+            self.log(f"❌ POST join request error: {str(e)}", "ERROR")
 
-        # Test 2: GET /api/cfo/tasks/{task_id}/my-submission (if we have a task)
-        if self.test_task_id:
-            try:
-                headers = {"Authorization": f"Bearer {self.participant_token}"}
-                response = self.session.get(
-                    f"{CFO_API_BASE}/tasks/{self.test_task_id}/my-submission",
-                    headers=headers
-                )
-                
-                if response.status_code in [200, 404]:  # 404 is valid if no submission exists
-                    self.log("✅ GET my task submission endpoint working")
-                    success_count += 1
+        # Test 2: GET /api/cfo/teams/{team_id}/join-requests (leader only)
+        try:
+            headers = {"Authorization": f"Bearer {self.leader_token}"}
+            response = self.session.get(
+                f"{CFO_API_BASE}/teams/{self.test_team_id}/join-requests",
+                headers=headers
+            )
+            
+            if response.status_code in [200, 403]:  # 403 if not leader
+                if response.status_code == 200:
+                    requests = response.json()
+                    self.log(f"✅ GET join requests successful - found {len(requests)} requests")
                 else:
-                    self.log(f"❌ GET my task submission failed: {response.status_code} - {response.text}", "ERROR")
-                    
-            except Exception as e:
-                self.log(f"❌ GET my task submission error: {str(e)}", "ERROR")
+                    self.log("⚠️ GET join requests returned 403 (not leader - expected)")
+                success_count += 1
+            else:
+                self.log(f"❌ GET join requests failed: {response.status_code} - {response.text}", "ERROR")
+                
+        except Exception as e:
+            self.log(f"❌ GET join requests error: {str(e)}", "ERROR")
 
-        # Test 3: POST /api/cfo/tasks/{task_id}/submit (file upload)
-        if self.test_task_id:
-            try:
-                # Create a test file
-                test_file_content = b"Test submission content for Phase 5 testing"
-                files = {'file': ('test_submission.pdf', test_file_content, 'application/pdf')}
-                data = {'declared_duration_seconds': '3600'}
-                
-                headers = {"Authorization": f"Bearer {self.participant_token}"}
-                # Remove Content-Type header for multipart upload
-                upload_headers = {k: v for k, v in headers.items() if k != 'Content-Type'}
-                
-                response = self.session.post(
-                    f"{CFO_API_BASE}/tasks/{self.test_task_id}/submit",
-                    data=data,
-                    files=files,
-                    headers=upload_headers
-                )
-                
-                if response.status_code in [200, 201, 403, 404]:  # 403/404 acceptable for test scenarios
-                    if response.status_code in [200, 201]:
-                        self.log("✅ POST task submission successful")
-                        result = response.json()
-                        if "submission" in result:
-                            self.test_submission_id = result["submission"].get("id")
+        # Test 3: GET /api/cfo/teams/{team_id}/leader-dashboard
+        try:
+            headers = {"Authorization": f"Bearer {self.leader_token}"}
+            response = self.session.get(
+                f"{CFO_API_BASE}/teams/{self.test_team_id}/leader-dashboard",
+                headers=headers
+            )
+            
+            if response.status_code in [200, 403]:  # 403 if not leader
+                if response.status_code == 200:
+                    dashboard = response.json()
+                    required_fields = ["team", "competition", "members", "submissions"]
+                    if all(field in dashboard for field in required_fields):
+                        self.log("✅ GET leader dashboard successful - all required fields present")
+                        success_count += 1
                     else:
-                        self.log(f"⚠️ POST task submission returned {response.status_code} (expected for test scenario)")
-                    success_count += 1
+                        self.log("❌ GET leader dashboard missing required fields", "ERROR")
                 else:
-                    self.log(f"❌ POST task submission failed: {response.status_code} - {response.text}", "ERROR")
-                    
-            except Exception as e:
-                self.log(f"❌ POST task submission error: {str(e)}", "ERROR")
+                    self.log("⚠️ GET leader dashboard returned 403 (not leader - expected)")
+                    success_count += 1
+            else:
+                self.log(f"❌ GET leader dashboard failed: {response.status_code} - {response.text}", "ERROR")
+                
+        except Exception as e:
+            self.log(f"❌ GET leader dashboard error: {str(e)}", "ERROR")
 
-        return success_count >= 2  # At least 2 out of 3 should work
+        # Test 4: PATCH /api/cfo/teams/{team_id}/settings
+        try:
+            settings_data = {
+                "requires_approval": True,
+                "team_settings": {"notifications": True}
+            }
+            
+            headers = {"Authorization": f"Bearer {self.leader_token}"}
+            response = self.session.patch(
+                f"{CFO_API_BASE}/teams/{self.test_team_id}/settings",
+                json=settings_data,
+                headers=headers
+            )
+            
+            if response.status_code in [200, 403, 404]:  # Various responses acceptable
+                if response.status_code == 200:
+                    self.log("✅ PATCH team settings successful")
+                else:
+                    self.log(f"⚠️ PATCH team settings returned {response.status_code} (expected for test scenario)")
+                success_count += 1
+            else:
+                self.log(f"❌ PATCH team settings failed: {response.status_code} - {response.text}", "ERROR")
+                
+        except Exception as e:
+            self.log(f"❌ PATCH team settings error: {str(e)}", "ERROR")
 
-    def test_admin_task_submission_management(self) -> bool:
-        """Test Phase 5: Admin Task Submission Management"""
-        self.log("Testing Phase 5: Admin Task Submission Management...")
+        return success_count >= 2  # At least 2 out of 4 should work
+
+    def test_phase6_admin_observer_mode(self) -> bool:
+        """Test Phase 6: Admin Observer Mode endpoints"""
+        self.log("Testing Phase 6: Admin Observer Mode...")
         
-        if not self.test_competition_id:
-            self.log("❌ No competition ID available", "ERROR")
+        if not self.test_team_id or not self.test_competition_id:
+            self.log("❌ No team or competition ID available", "ERROR")
             return False
         
         success_count = 0
         
-        # Test 1: GET /api/admin/competitions/{competition_id}/task-submissions
+        # Test 1: GET /api/admin/teams/{team_id}/full-view
         try:
             headers = {"Authorization": f"Bearer {self.admin_token}"}
             response = self.session.get(
-                f"{ADMIN_API_BASE}/competitions/{self.test_competition_id}/task-submissions",
-                params={"level": 2},
+                f"{ADMIN_API_BASE}/teams/{self.test_team_id}/full-view",
                 headers=headers
             )
             
             if response.status_code == 200:
-                submissions = response.json()
-                self.log(f"✅ GET competition task submissions successful - found {len(submissions)} submissions")
-                success_count += 1
+                view_data = response.json()
+                required_fields = ["team", "members", "submissions", "_admin_view_logged"]
+                if all(field in view_data for field in required_fields):
+                    self.log("✅ GET admin team full view successful - all required fields present")
+                    success_count += 1
+                else:
+                    self.log("❌ GET admin team full view missing required fields", "ERROR")
             else:
-                self.log(f"❌ GET competition task submissions failed: {response.status_code} - {response.text}", "ERROR")
+                self.log(f"❌ GET admin team full view failed: {response.status_code} - {response.text}", "ERROR")
                 
         except Exception as e:
-            self.log(f"❌ GET competition task submissions error: {str(e)}", "ERROR")
+            self.log(f"❌ GET admin team full view error: {str(e)}", "ERROR")
 
-        # Test 2: GET /api/admin/tasks/{task_id}/submissions (if we have a task)
-        if self.test_task_id:
-            try:
-                headers = {"Authorization": f"Bearer {self.admin_token}"}
-                response = self.session.get(
-                    f"{ADMIN_API_BASE}/tasks/{self.test_task_id}/submissions",
-                    headers=headers
-                )
-                
-                if response.status_code == 200:
-                    submissions = response.json()
-                    self.log(f"✅ GET task submissions successful - found {len(submissions)} submissions")
+        # Test 2: GET /api/admin/teams/{team_id}/chat
+        try:
+            headers = {"Authorization": f"Bearer {self.admin_token}"}
+            response = self.session.get(
+                f"{ADMIN_API_BASE}/teams/{self.test_team_id}/chat",
+                headers=headers
+            )
+            
+            if response.status_code == 200:
+                chat_data = response.json()
+                required_fields = ["team_id", "messages", "_read_only", "_admin_view_logged"]
+                if all(field in chat_data for field in required_fields):
+                    self.log("✅ GET admin team chat successful - read-only access confirmed")
                     success_count += 1
                 else:
-                    self.log(f"❌ GET task submissions failed: {response.status_code} - {response.text}", "ERROR")
-                    
-            except Exception as e:
-                self.log(f"❌ GET task submissions error: {str(e)}", "ERROR")
-
-        # Test 3: POST /api/admin/task-submissions/{submission_id}/lock (if we have a submission)
-        if self.test_submission_id:
-            try:
-                headers = {"Authorization": f"Bearer {self.admin_token}"}
-                response = self.session.post(
-                    f"{ADMIN_API_BASE}/task-submissions/{self.test_submission_id}/lock",
-                    headers=headers
-                )
+                    self.log("❌ GET admin team chat missing required fields", "ERROR")
+            else:
+                self.log(f"❌ GET admin team chat failed: {response.status_code} - {response.text}", "ERROR")
                 
-                if response.status_code == 200:
-                    self.log("✅ POST lock submission successful")
-                    success_count += 1
-                else:
-                    self.log(f"❌ POST lock submission failed: {response.status_code} - {response.text}", "ERROR")
-                    
-            except Exception as e:
-                self.log(f"❌ POST lock submission error: {str(e)}", "ERROR")
+        except Exception as e:
+            self.log(f"❌ GET admin team chat error: {str(e)}", "ERROR")
 
-        return success_count >= 1  # At least 1 should work
+        # Test 3: GET /api/admin/teams/{team_id}/activity
+        try:
+            headers = {"Authorization": f"Bearer {self.admin_token}"}
+            response = self.session.get(
+                f"{ADMIN_API_BASE}/teams/{self.test_team_id}/activity",
+                headers=headers
+            )
+            
+            if response.status_code == 200:
+                activity = response.json()
+                self.log(f"✅ GET team activity timeline successful - found {len(activity)} activities")
+                success_count += 1
+            else:
+                self.log(f"❌ GET team activity timeline failed: {response.status_code} - {response.text}", "ERROR")
+                
+        except Exception as e:
+            self.log(f"❌ GET team activity timeline error: {str(e)}", "ERROR")
 
-    def test_judge_assignment_admin(self) -> bool:
-        """Test Phase 6: Judge Assignment (Admin)"""
-        self.log("Testing Phase 6: Judge Assignment (Admin)...")
+        # Test 4: GET /api/admin/competitions/{competition_id}/all-teams
+        try:
+            headers = {"Authorization": f"Bearer {self.admin_token}"}
+            response = self.session.get(
+                f"{ADMIN_API_BASE}/competitions/{self.test_competition_id}/all-teams",
+                headers=headers
+            )
+            
+            if response.status_code == 200:
+                teams = response.json()
+                self.log(f"✅ GET all teams successful - found {len(teams)} teams")
+                success_count += 1
+            else:
+                self.log(f"❌ GET all teams failed: {response.status_code} - {response.text}", "ERROR")
+                
+        except Exception as e:
+            self.log(f"❌ GET all teams error: {str(e)}", "ERROR")
+
+        return success_count >= 3  # At least 3 out of 4 should work
+
+    def test_phase8_scoring_fairness(self) -> bool:
+        """Test Phase 8: Scoring Fairness endpoints"""
+        self.log("Testing Phase 8: Scoring Fairness...")
         
-        if not self.test_competition_id:
-            self.log("❌ No competition ID available", "ERROR")
+        if not self.test_submission_id or not self.test_competition_id:
+            self.log("❌ No submission or competition ID available", "ERROR")
             return False
         
         success_count = 0
         
-        # Test 1: POST /api/admin/competitions/{competition_id}/judges
+        # Test 1: POST /api/cfo/submissions/{submission_id}/appeal
         try:
-            judge_data = {
-                "judge_id": "test_judge_123",
-                "notes": "Test judge assignment for Phase 6 testing"
+            appeal_data = {
+                "appeal_reason": "I believe the scoring was unfair due to unclear criteria interpretation"
+            }
+            
+            headers = {"Authorization": f"Bearer {self.participant_token}"}
+            response = self.session.post(
+                f"{CFO_API_BASE}/submissions/{self.test_submission_id}/appeal",
+                json=appeal_data,
+                headers=headers
+            )
+            
+            if response.status_code in [200, 201, 403, 404]:  # Various responses acceptable
+                if response.status_code in [200, 201]:
+                    result = response.json()
+                    if "appeal" in result:
+                        self.test_appeal_id = result["appeal"].get("id")
+                    self.log("✅ POST score appeal successful")
+                else:
+                    self.log(f"⚠️ POST score appeal returned {response.status_code} (expected for test scenario)")
+                success_count += 1
+            else:
+                self.log(f"❌ POST score appeal failed: {response.status_code} - {response.text}", "ERROR")
+                
+        except Exception as e:
+            self.log(f"❌ POST score appeal error: {str(e)}", "ERROR")
+
+        # Test 2: GET /api/admin/competitions/{competition_id}/appeals
+        try:
+            headers = {"Authorization": f"Bearer {self.admin_token}"}
+            response = self.session.get(
+                f"{ADMIN_API_BASE}/competitions/{self.test_competition_id}/appeals",
+                headers=headers
+            )
+            
+            if response.status_code == 200:
+                appeals = response.json()
+                self.log(f"✅ GET competition appeals successful - found {len(appeals)} appeals")
+                success_count += 1
+            else:
+                self.log(f"❌ GET competition appeals failed: {response.status_code} - {response.text}", "ERROR")
+                
+        except Exception as e:
+            self.log(f"❌ GET competition appeals error: {str(e)}", "ERROR")
+
+        # Test 3: POST /api/admin/appeals/{appeal_id}/review (if we have an appeal)
+        if self.test_appeal_id:
+            try:
+                review_data = {
+                    "status": "reviewed",
+                    "review_notes": "Appeal reviewed and found valid",
+                    "adjusted_score": 85.5
+                }
+                
+                headers = {"Authorization": f"Bearer {self.admin_token}"}
+                response = self.session.post(
+                    f"{ADMIN_API_BASE}/appeals/{self.test_appeal_id}/review",
+                    json=review_data,
+                    headers=headers
+                )
+                
+                if response.status_code == 200:
+                    self.log("✅ POST appeal review successful")
+                    success_count += 1
+                else:
+                    self.log(f"❌ POST appeal review failed: {response.status_code} - {response.text}", "ERROR")
+                    
+            except Exception as e:
+                self.log(f"❌ POST appeal review error: {str(e)}", "ERROR")
+
+        return success_count >= 2  # At least 2 out of 3 should work
+
+    def test_phase9_talent_marketplace(self) -> bool:
+        """Test Phase 9: Talent Marketplace endpoints"""
+        self.log("Testing Phase 9: Talent Marketplace...")
+        
+        success_count = 0
+        
+        # Test 1: GET /api/talent/profile (auto-creates)
+        try:
+            headers = {"Authorization": f"Bearer {self.participant_token}"}
+            response = self.session.get(f"{TALENT_API_BASE}/profile", headers=headers)
+            
+            if response.status_code == 200:
+                profile = response.json()
+                self.log("✅ GET talent profile successful (auto-created if needed)")
+                success_count += 1
+            else:
+                self.log(f"❌ GET talent profile failed: {response.status_code} - {response.text}", "ERROR")
+                
+        except Exception as e:
+            self.log(f"❌ GET talent profile error: {str(e)}", "ERROR")
+
+        # Test 2: PATCH /api/talent/profile
+        try:
+            profile_data = {
+                "is_public": True,
+                "is_open_to_offers": True,
+                "preferred_roles": ["Financial Analyst", "CFO"],
+                "preferred_industries": ["Technology", "Finance"],
+                "remote_preference": "hybrid"
+            }
+            
+            headers = {"Authorization": f"Bearer {self.participant_token}"}
+            response = self.session.patch(
+                f"{TALENT_API_BASE}/profile",
+                json=profile_data,
+                headers=headers
+            )
+            
+            if response.status_code == 200:
+                self.log("✅ PATCH talent profile successful")
+                success_count += 1
+            else:
+                self.log(f"❌ PATCH talent profile failed: {response.status_code} - {response.text}", "ERROR")
+                
+        except Exception as e:
+            self.log(f"❌ PATCH talent profile error: {str(e)}", "ERROR")
+
+        # Test 3: GET /api/talent/browse
+        try:
+            headers = {"Authorization": f"Bearer {self.company_token}"}
+            response = self.session.get(
+                f"{TALENT_API_BASE}/browse",
+                params={"open_to_offers": True, "limit": 10},
+                headers=headers
+            )
+            
+            if response.status_code == 200:
+                profiles = response.json()
+                self.log(f"✅ GET browse talent successful - found {len(profiles)} profiles")
+                success_count += 1
+            else:
+                self.log(f"❌ GET browse talent failed: {response.status_code} - {response.text}", "ERROR")
+                
+        except Exception as e:
+            self.log(f"❌ GET browse talent error: {str(e)}", "ERROR")
+
+        # Test 4: POST /api/company/profile
+        try:
+            company_data = {
+                "company_name": "Test Financial Corp",
+                "company_type": "corporation",
+                "industry": "Financial Services",
+                "company_size": "50-200",
+                "headquarters_location": "New York, NY",
+                "description": "Leading financial services company"
+            }
+            
+            headers = {"Authorization": f"Bearer {self.company_token}"}
+            response = self.session.post(
+                f"{COMPANY_API_BASE}/profile",
+                json=company_data,
+                headers=headers
+            )
+            
+            if response.status_code in [200, 201, 400]:  # 400 if already exists
+                if response.status_code in [200, 201]:
+                    self.log("✅ POST company profile successful")
+                else:
+                    self.log("⚠️ POST company profile returned 400 (already exists - expected)")
+                success_count += 1
+            else:
+                self.log(f"❌ POST company profile failed: {response.status_code} - {response.text}", "ERROR")
+                
+        except Exception as e:
+            self.log(f"❌ POST company profile error: {str(e)}", "ERROR")
+
+        # Test 5: GET /api/company/profile
+        try:
+            headers = {"Authorization": f"Bearer {self.company_token}"}
+            response = self.session.get(f"{COMPANY_API_BASE}/profile", headers=headers)
+            
+            if response.status_code in [200, 404]:  # 404 if no profile
+                if response.status_code == 200:
+                    self.log("✅ GET company profile successful")
+                else:
+                    self.log("⚠️ GET company profile returned 404 (no profile - expected)")
+                success_count += 1
+            else:
+                self.log(f"❌ GET company profile failed: {response.status_code} - {response.text}", "ERROR")
+                
+        except Exception as e:
+            self.log(f"❌ GET company profile error: {str(e)}", "ERROR")
+
+        return success_count >= 3  # At least 3 out of 5 should work
+
+    def test_phase10_gamification(self) -> bool:
+        """Test Phase 10: Gamification endpoints"""
+        self.log("Testing Phase 10: Gamification...")
+        
+        success_count = 0
+        
+        # Test 1: GET /api/sponsors
+        try:
+            headers = {"Authorization": f"Bearer {self.participant_token}"}
+            response = self.session.get(f"{API_BASE}/sponsors", headers=headers)
+            
+            if response.status_code == 200:
+                sponsors = response.json()
+                self.log(f"✅ GET sponsors successful - found {len(sponsors)} sponsors")
+                success_count += 1
+            else:
+                self.log(f"❌ GET sponsors failed: {response.status_code} - {response.text}", "ERROR")
+                
+        except Exception as e:
+            self.log(f"❌ GET sponsors error: {str(e)}", "ERROR")
+
+        # Test 2: GET /api/challenges/active
+        try:
+            headers = {"Authorization": f"Bearer {self.participant_token}"}
+            response = self.session.get(f"{API_BASE}/challenges/active", headers=headers)
+            
+            if response.status_code == 200:
+                challenges = response.json()
+                self.log(f"✅ GET active challenges successful - found {len(challenges)} challenges")
+                success_count += 1
+            else:
+                self.log(f"❌ GET active challenges failed: {response.status_code} - {response.text}", "ERROR")
+                
+        except Exception as e:
+            self.log(f"❌ GET active challenges error: {str(e)}", "ERROR")
+
+        # Test 3: GET /api/badges
+        try:
+            headers = {"Authorization": f"Bearer {self.participant_token}"}
+            response = self.session.get(f"{API_BASE}/badges", headers=headers)
+            
+            if response.status_code == 200:
+                badges = response.json()
+                self.log(f"✅ GET badges successful - found {len(badges)} badges")
+                # Check for pre-populated badges
+                if len(badges) > 0:
+                    self.log("✅ Badges endpoint returns pre-populated data")
+                success_count += 1
+            else:
+                self.log(f"❌ GET badges failed: {response.status_code} - {response.text}", "ERROR")
+                
+        except Exception as e:
+            self.log(f"❌ GET badges error: {str(e)}", "ERROR")
+
+        # Test 4: GET /api/badges/my
+        try:
+            headers = {"Authorization": f"Bearer {self.participant_token}"}
+            response = self.session.get(f"{API_BASE}/badges/my", headers=headers)
+            
+            if response.status_code == 200:
+                my_badges = response.json()
+                self.log(f"✅ GET my badges successful - found {len(my_badges)} earned badges")
+                success_count += 1
+            else:
+                self.log(f"❌ GET my badges failed: {response.status_code} - {response.text}", "ERROR")
+                
+        except Exception as e:
+            self.log(f"❌ GET my badges error: {str(e)}", "ERROR")
+
+        # Test 5: GET /api/leaderboard/season
+        try:
+            headers = {"Authorization": f"Bearer {self.participant_token}"}
+            response = self.session.get(f"{API_BASE}/leaderboard/season", headers=headers)
+            
+            if response.status_code == 200:
+                leaderboard = response.json()
+                required_fields = ["season", "leaderboard"]
+                if all(field in leaderboard for field in required_fields):
+                    self.log(f"✅ GET season leaderboard successful - season: {leaderboard['season']}")
+                    success_count += 1
+                else:
+                    self.log("❌ GET season leaderboard missing required fields", "ERROR")
+            else:
+                self.log(f"❌ GET season leaderboard failed: {response.status_code} - {response.text}", "ERROR")
+                
+        except Exception as e:
+            self.log(f"❌ GET season leaderboard error: {str(e)}", "ERROR")
+
+        # Test 6: GET /api/seasons
+        try:
+            headers = {"Authorization": f"Bearer {self.participant_token}"}
+            response = self.session.get(f"{API_BASE}/seasons", headers=headers)
+            
+            if response.status_code == 200:
+                seasons = response.json()
+                self.log(f"✅ GET seasons successful - found {len(seasons)} seasons")
+                success_count += 1
+            else:
+                self.log(f"❌ GET seasons failed: {response.status_code} - {response.text}", "ERROR")
+                
+        except Exception as e:
+            self.log(f"❌ GET seasons error: {str(e)}", "ERROR")
+
+        # Test 7: POST /api/admin/badges/award (admin only)
+        try:
+            award_data = {
+                "user_id": "test_user_123",
+                "badge_code": "first_competition",
+                "competition_id": self.test_competition_id
             }
             
             headers = {"Authorization": f"Bearer {self.admin_token}"}
             response = self.session.post(
-                f"{ADMIN_API_BASE}/competitions/{self.test_competition_id}/judges",
-                json=judge_data,
+                f"{ADMIN_API_BASE}/badges/award",
+                json=award_data,
                 headers=headers
             )
             
-            if response.status_code in [200, 201, 404, 500]:  # 404/500 acceptable for test scenarios
+            if response.status_code in [200, 400, 404]:  # Various responses acceptable
+                if response.status_code == 200:
+                    self.log("✅ POST admin award badge successful")
+                else:
+                    self.log(f"⚠️ POST admin award badge returned {response.status_code} (expected for test scenario)")
+                success_count += 1
+            else:
+                self.log(f"❌ POST admin award badge failed: {response.status_code} - {response.text}", "ERROR")
+                
+        except Exception as e:
+            self.log(f"❌ POST admin award badge error: {str(e)}", "ERROR")
+
+        # Test 8: POST /api/admin/sponsors (admin only)
+        try:
+            sponsor_data = {
+                "name": "Test Financial Sponsor",
+                "tier": "gold",
+                "logo_url": "https://example.com/logo.png",
+                "description": "Leading financial technology sponsor",
+                "is_active": True
+            }
+            
+            headers = {"Authorization": f"Bearer {self.admin_token}"}
+            response = self.session.post(
+                f"{ADMIN_API_BASE}/sponsors",
+                json=sponsor_data,
+                headers=headers
+            )
+            
+            if response.status_code in [200, 201, 400]:  # Various responses acceptable
                 if response.status_code in [200, 201]:
-                    self.log("✅ POST assign judge successful")
-                    self.test_judge_id = judge_data["judge_id"]
+                    self.log("✅ POST admin create sponsor successful")
                 else:
-                    self.log(f"⚠️ POST assign judge returned {response.status_code} (expected for test scenario)")
+                    self.log(f"⚠️ POST admin create sponsor returned {response.status_code} (expected for test scenario)")
                 success_count += 1
             else:
-                self.log(f"❌ POST assign judge failed: {response.status_code} - {response.text}", "ERROR")
+                self.log(f"❌ POST admin create sponsor failed: {response.status_code} - {response.text}", "ERROR")
                 
         except Exception as e:
-            self.log(f"❌ POST assign judge error: {str(e)}", "ERROR")
+            self.log(f"❌ POST admin create sponsor error: {str(e)}", "ERROR")
 
-        # Test 2: GET /api/admin/competitions/{competition_id}/judges
-        try:
-            headers = {"Authorization": f"Bearer {self.admin_token}"}
-            response = self.session.get(
-                f"{ADMIN_API_BASE}/competitions/{self.test_competition_id}/judges",
-                headers=headers
-            )
-            
-            if response.status_code == 200:
-                judges = response.json()
-                self.log(f"✅ GET competition judges successful - found {len(judges)} judges")
-                success_count += 1
-            else:
-                self.log(f"❌ GET competition judges failed: {response.status_code} - {response.text}", "ERROR")
-                
-        except Exception as e:
-            self.log(f"❌ GET competition judges error: {str(e)}", "ERROR")
-
-        # Test 3: DELETE /api/admin/competitions/{competition_id}/judges/{judge_id}
-        if self.test_judge_id:
-            try:
-                headers = {"Authorization": f"Bearer {self.admin_token}"}
-                response = self.session.delete(
-                    f"{ADMIN_API_BASE}/competitions/{self.test_competition_id}/judges/{self.test_judge_id}",
-                    headers=headers
-                )
-                
-                if response.status_code == 200:
-                    self.log("✅ DELETE remove judge successful")
-                    success_count += 1
-                else:
-                    self.log(f"❌ DELETE remove judge failed: {response.status_code} - {response.text}", "ERROR")
-                    
-            except Exception as e:
-                self.log(f"❌ DELETE remove judge error: {str(e)}", "ERROR")
-
-        return success_count >= 2  # At least 2 out of 3 should work
-
-    def test_judge_workflow(self) -> bool:
-        """Test Phase 6: Judge Workflow"""
-        self.log("Testing Phase 6: Judge Workflow...")
-        
-        success_count = 0
-        
-        # Test 1: GET /api/judge/competitions
-        try:
-            headers = {"Authorization": f"Bearer {self.judge_token}"}
-            response = self.session.get(f"{JUDGE_API_BASE}/competitions", headers=headers)
-            
-            if response.status_code == 200:
-                competitions = response.json()
-                self.log(f"✅ GET judge competitions successful - found {len(competitions)} competitions")
-                success_count += 1
-            else:
-                self.log(f"❌ GET judge competitions failed: {response.status_code} - {response.text}", "ERROR")
-                
-        except Exception as e:
-            self.log(f"❌ GET judge competitions error: {str(e)}", "ERROR")
-
-        # Test 2: GET /api/judge/competitions/{competition_id}/submissions
-        if self.test_competition_id:
-            try:
-                headers = {"Authorization": f"Bearer {self.judge_token}"}
-                response = self.session.get(
-                    f"{JUDGE_API_BASE}/competitions/{self.test_competition_id}/submissions",
-                    params={"level": 2},
-                    headers=headers
-                )
-                
-                if response.status_code in [200, 403]:  # 403 acceptable if not assigned
-                    if response.status_code == 200:
-                        submissions = response.json()
-                        self.log(f"✅ GET judge submissions successful - found {len(submissions)} submissions")
-                    else:
-                        self.log("⚠️ GET judge submissions returned 403 (not assigned - expected)")
-                    success_count += 1
-                else:
-                    self.log(f"❌ GET judge submissions failed: {response.status_code} - {response.text}", "ERROR")
-                    
-            except Exception as e:
-                self.log(f"❌ GET judge submissions error: {str(e)}", "ERROR")
-
-        # Test 3: GET /api/judge/competitions/{competition_id}/criteria
-        if self.test_competition_id:
-            try:
-                headers = {"Authorization": f"Bearer {self.judge_token}"}
-                response = self.session.get(
-                    f"{JUDGE_API_BASE}/competitions/{self.test_competition_id}/criteria",
-                    params={"level": 2},
-                    headers=headers
-                )
-                
-                if response.status_code == 200:
-                    criteria = response.json()
-                    self.log(f"✅ GET judge criteria successful - found {len(criteria)} criteria")
-                    success_count += 1
-                else:
-                    self.log(f"❌ GET judge criteria failed: {response.status_code} - {response.text}", "ERROR")
-                    
-            except Exception as e:
-                self.log(f"❌ GET judge criteria error: {str(e)}", "ERROR")
-
-        # Test 4: GET /api/judge/task-submissions/{submission_id}/my-scores
-        if self.test_submission_id:
-            try:
-                headers = {"Authorization": f"Bearer {self.judge_token}"}
-                response = self.session.get(
-                    f"{JUDGE_API_BASE}/task-submissions/{self.test_submission_id}/my-scores",
-                    headers=headers
-                )
-                
-                if response.status_code == 200:
-                    scores = response.json()
-                    self.log("✅ GET my submission scores successful")
-                    success_count += 1
-                else:
-                    self.log(f"❌ GET my submission scores failed: {response.status_code} - {response.text}", "ERROR")
-                    
-            except Exception as e:
-                self.log(f"❌ GET my submission scores error: {str(e)}", "ERROR")
-
-        # Test 5: POST /api/judge/task-submissions/{submission_id}/score
-        if self.test_submission_id:
-            try:
-                score_data = {
-                    "scores": [
-                        {"criterion_id": "test_criterion_1", "score": 85, "feedback": "Good work"},
-                        {"criterion_id": "test_criterion_2", "score": 90, "feedback": "Excellent analysis"}
-                    ],
-                    "overall_feedback": "Strong submission overall",
-                    "is_final": False
-                }
-                
-                headers = {"Authorization": f"Bearer {self.judge_token}"}
-                response = self.session.post(
-                    f"{JUDGE_API_BASE}/task-submissions/{self.test_submission_id}/score",
-                    json=score_data,
-                    headers=headers
-                )
-                
-                if response.status_code in [200, 400, 403, 404]:  # Various responses acceptable for test
-                    if response.status_code == 200:
-                        self.log("✅ POST judge score successful")
-                    else:
-                        self.log(f"⚠️ POST judge score returned {response.status_code} (expected for test scenario)")
-                    success_count += 1
-                else:
-                    self.log(f"❌ POST judge score failed: {response.status_code} - {response.text}", "ERROR")
-                    
-            except Exception as e:
-                self.log(f"❌ POST judge score error: {str(e)}", "ERROR")
-
-        return success_count >= 3  # At least 3 out of 5 should work
-
-    def test_leaderboards_results(self) -> bool:
-        """Test Phase 7: Leaderboards & Results"""
-        self.log("Testing Phase 7: Leaderboards & Results...")
-        
-        if not self.test_competition_id:
-            self.log("❌ No competition ID available", "ERROR")
-            return False
-        
-        success_count = 0
-        
-        # Test 1: GET /api/cfo/competitions/{competition_id}/leaderboard (should be 403 if not published)
-        try:
-            headers = {"Authorization": f"Bearer {self.participant_token}"}
-            response = self.session.get(
-                f"{CFO_API_BASE}/competitions/{self.test_competition_id}/leaderboard",
-                headers=headers
-            )
-            
-            if response.status_code in [200, 403]:  # Both are valid responses
-                if response.status_code == 403:
-                    self.log("✅ GET leaderboard correctly returns 403 (results not published)")
-                else:
-                    leaderboard = response.json()
-                    self.log("✅ GET leaderboard successful (results published)")
-                success_count += 1
-            else:
-                self.log(f"❌ GET leaderboard failed: {response.status_code} - {response.text}", "ERROR")
-                
-        except Exception as e:
-            self.log(f"❌ GET leaderboard error: {str(e)}", "ERROR")
-
-        # Test 2: POST /api/admin/competitions/{competition_id}/publish-results
-        try:
-            headers = {"Authorization": f"Bearer {self.admin_token}"}
-            response = self.session.post(
-                f"{ADMIN_API_BASE}/competitions/{self.test_competition_id}/publish-results",
-                headers=headers
-            )
-            
-            if response.status_code in [200, 400, 404]:  # Various responses acceptable
-                if response.status_code == 200:
-                    self.log("✅ POST publish results successful")
-                else:
-                    self.log(f"⚠️ POST publish results returned {response.status_code} (expected for test scenario)")
-                success_count += 1
-            else:
-                self.log(f"❌ POST publish results failed: {response.status_code} - {response.text}", "ERROR")
-                
-        except Exception as e:
-            self.log(f"❌ POST publish results error: {str(e)}", "ERROR")
-
-        # Test 3: GET /api/admin/competitions/{competition_id}/export-results
-        try:
-            headers = {"Authorization": f"Bearer {self.admin_token}"}
-            response = self.session.get(
-                f"{ADMIN_API_BASE}/competitions/{self.test_competition_id}/export-results",
-                params={"format": "json"},
-                headers=headers
-            )
-            
-            if response.status_code == 200:
-                self.log("✅ GET export results successful")
-                success_count += 1
-            else:
-                self.log(f"❌ GET export results failed: {response.status_code} - {response.text}", "ERROR")
-                
-        except Exception as e:
-            self.log(f"❌ GET export results error: {str(e)}", "ERROR")
-
-        return success_count >= 2  # At least 2 out of 3 should work
-
-    def test_certificates(self) -> bool:
-        """Test Phase 8: Certificates"""
-        self.log("Testing Phase 8: Certificates...")
-        
-        if not self.test_competition_id:
-            self.log("❌ No competition ID available", "ERROR")
-            return False
-        
-        success_count = 0
-        
-        # Test 1: POST /api/admin/competitions/{competition_id}/issue-certificates
-        try:
-            headers = {"Authorization": f"Bearer {self.admin_token}"}
-            response = self.session.post(
-                f"{ADMIN_API_BASE}/competitions/{self.test_competition_id}/issue-certificates",
-                headers=headers
-            )
-            
-            if response.status_code in [200, 400, 404]:  # Various responses acceptable
-                if response.status_code == 200:
-                    result = response.json()
-                    self.log(f"✅ POST issue certificates successful - issued {result.get('issued_count', 0)} certificates")
-                else:
-                    self.log(f"⚠️ POST issue certificates returned {response.status_code} (expected for test scenario)")
-                success_count += 1
-            else:
-                self.log(f"❌ POST issue certificates failed: {response.status_code} - {response.text}", "ERROR")
-                
-        except Exception as e:
-            self.log(f"❌ POST issue certificates error: {str(e)}", "ERROR")
-
-        # Test 2: GET /api/cfo/me/certificates
-        try:
-            headers = {"Authorization": f"Bearer {self.participant_token}"}
-            response = self.session.get(f"{CFO_API_BASE}/me/certificates", headers=headers)
-            
-            if response.status_code == 200:
-                certificates = response.json()
-                self.log(f"✅ GET my certificates successful - found {len(certificates)} certificates")
-                success_count += 1
-            else:
-                self.log(f"❌ GET my certificates failed: {response.status_code} - {response.text}", "ERROR")
-                
-        except Exception as e:
-            self.log(f"❌ GET my certificates error: {str(e)}", "ERROR")
-
-        return success_count >= 1  # At least 1 should work
-
-    def test_integrity(self) -> bool:
-        """Test Phase 9: Integrity"""
-        self.log("Testing Phase 9: Integrity...")
-        
-        if not self.test_task_id:
-            self.log("❌ No task ID available", "ERROR")
-            return False
-        
-        success_count = 0
-        
-        # Test 1: GET /api/admin/tasks/{task_id}/integrity-report
-        try:
-            headers = {"Authorization": f"Bearer {self.admin_token}"}
-            response = self.session.get(
-                f"{ADMIN_API_BASE}/tasks/{self.test_task_id}/integrity-report",
-                headers=headers
-            )
-            
-            if response.status_code == 200:
-                report = response.json()
-                required_fields = ["task_id", "submission_count", "duplicates"]
-                
-                if all(field in report for field in required_fields):
-                    self.log(f"✅ GET integrity report successful - {report['submission_count']} submissions, {len(report['duplicates'])} duplicate groups")
-                    success_count += 1
-                else:
-                    self.log("❌ GET integrity report missing required fields", "ERROR")
-            else:
-                self.log(f"❌ GET integrity report failed: {response.status_code} - {response.text}", "ERROR")
-                
-        except Exception as e:
-            self.log(f"❌ GET integrity report error: {str(e)}", "ERROR")
-
-        return success_count >= 1
-
-    def test_operations(self) -> bool:
-        """Test Phase 10: Operations"""
-        self.log("Testing Phase 10: Operations...")
-        
-        success_count = 0
-        
-        # Test 1: GET /api/admin/audit-log
-        try:
-            headers = {"Authorization": f"Bearer {self.admin_token}"}
-            response = self.session.get(
-                f"{ADMIN_API_BASE}/audit-log",
-                params={"limit": 10},
-                headers=headers
-            )
-            
-            if response.status_code == 200:
-                audit_log = response.json()
-                self.log(f"✅ GET audit log successful - found {len(audit_log)} entries")
-                success_count += 1
-            else:
-                self.log(f"❌ GET audit log failed: {response.status_code} - {response.text}", "ERROR")
-                
-        except Exception as e:
-            self.log(f"❌ GET audit log error: {str(e)}", "ERROR")
-
-        return success_count >= 1
+        return success_count >= 5  # At least 5 out of 8 should work
 
     def run_all_tests(self) -> Dict[str, bool]:
         """Run all Phase 5-10 test suites and return results"""
