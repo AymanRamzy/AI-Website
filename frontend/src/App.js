@@ -23,6 +23,7 @@ import AdminDashboard from './pages/AdminDashboard';
 import CFOApplication from './pages/CFOApplication';
 import CFOApplicationsList from './pages/CFOApplicationsList';
 import CFOApplicationDetail from './pages/CFOApplicationDetail';
+import JudgeDashboard from './pages/JudgeDashboard';
 import AuthConfirm from './pages/AuthConfirm';
 import AuthCallback from './pages/AuthCallback';
 import CheckEmail from './pages/CheckEmail';
