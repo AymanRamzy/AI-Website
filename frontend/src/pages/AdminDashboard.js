@@ -81,6 +81,18 @@ function AdminDashboard() {
     setLoading(false);
   };
 
+  const fetchAllTeams = async (competitionId) => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/admin/competitions/${competitionId}/all-teams`, {
+        credentials: 'include'
+      });
+      if (res.ok) setAllTeams(await res.json());
+    } catch (e) { 
+      console.error('Failed to load teams:', e);
+      setAllTeams([]);
+    }
+  };
+
   useEffect(() => {
     if (user?.role !== 'admin') {
       navigate('/dashboard');
