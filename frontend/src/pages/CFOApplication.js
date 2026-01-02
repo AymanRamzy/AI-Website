@@ -1,3 +1,6 @@
+
+import { TextAreaField } from '@/components/form';
+
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -58,24 +61,6 @@ const RadioOption = ({ name, value, label, description, selected, onChange }) =>
   </label>
 );
 
-// Reusable TextArea component
-const TextAreaField = ({ label, value, onChange, maxLength, minLength, placeholder, rows = 3 }) => (
-  <div>
-    <label className="block font-semibold text-gray-800 mb-2">{label}</label>
-    <textarea
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      maxLength={maxLength}
-      placeholder={placeholder}
-      rows={rows}
-      className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-modex-secondary focus:outline-none resize-none"
-    />
-    <div className="flex justify-between mt-1 text-xs text-gray-500">
-      <span>{value.length < minLength ? `Minimum ${minLength} characters required` : ''}</span>
-      <span>{value.length}/{maxLength}</span>
-    </div>
-  </div>
-);
 
 function CFOApplication() {
   const { user } = useAuth();  // SECURITY: Cookie-based auth

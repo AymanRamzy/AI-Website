@@ -114,21 +114,21 @@ class CFOApplicationStep1(BaseModel):
 
 class CFOApplicationStep2(BaseModel):
     capital_allocation: CapitalAllocationChoice
-    capital_justification: str = Field(..., max_length=300)  # Max 3 lines
+    capital_justification: str = Field(..., max_length=500)  # Max 3 lines
     cash_vs_profit: str = Field(..., max_length=500)
     kpi_prioritization: str = Field(..., max_length=500)
 
 class CFOApplicationStep3(BaseModel):
     dscr_choice: DSCRChoice
-    dscr_impact: str = Field(..., max_length=200)
+    dscr_impact: str = Field(..., max_length=300)
     cost_priority: CostPriority
     cfo_mindset: CFOMindset
-    mindset_explanation: str = Field(..., max_length=150)
+    mindset_explanation: str = Field(..., max_length=300)
 
 class CFOApplicationStep4(BaseModel):
     ethics_choice: EthicsChoice
     culture_vs_results: CultureVsResults
-    why_top_100: str = Field(..., max_length=300)  # Max 3 lines
+    why_top_100: str = Field(..., max_length=600)  # Max 3 lines
 
 class CFOFullApplication(BaseModel):
     competition_id: str
