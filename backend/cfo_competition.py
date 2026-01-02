@@ -1320,6 +1320,42 @@ async def check_registration(
     return {"is_registered": is_registered}
 
 
+@router.get("/competitions/{competition_id}/status")
+async def get_competition_status(
+    competition_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get explicit status flags for a competition.
+    Participants can view but cannot modify these flags.
+    
+    Returns:
+    - registration_open: Can users register?
+    - submission_open: Can teams submit?
+    - submissions_locked: Are submissions immutable?
+    - results_published: Is leaderboard public?
+    - status: Current phase (draft/registration/active/judging/completed)
+    """
+    supabase = get_supabase_client()
+    
+    response = supabase.table("competitions")\
+        .select("*")\
+        .eq("id", competition_id)\
+        .execute()
+    
+    if not response.data:
+        raise HTTPException(status_code=404, detail=CompetitionErrors.COMPETITION_NOT_FOUND)
+    
+    competition = response.data[0]
+    status_flags = get_competition_status_flags(competition)
+    
+    return {
+        "competition_id": competition_id,
+        "title": competition.get("title"),
+        **status_flags
+    }
+
+
 @router.post("/competitions/{competition_id}/register", status_code=201)
 async def register_for_competition(
     competition_id: str,
