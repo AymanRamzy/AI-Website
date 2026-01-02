@@ -1367,14 +1367,16 @@ async def register_for_competition(
     
     competition = supabase.table("competitions").select("*").eq("id", competition_id).execute()
     if not competition.data:
-        raise HTTPException(status_code=404, detail="Competition not found")
+        raise HTTPException(status_code=404, detail=CompetitionErrors.COMPETITION_NOT_FOUND)
     
     comp = competition.data[0]
     
-    if comp.get("status") != "open":
+    # PHASE 1.5: Check explicit status flags
+    status_flags = get_competition_status_flags(comp)
+    if not status_flags["registration_open"]:
         raise HTTPException(
             status_code=403, 
-            detail="Registration is not open for this competition"
+            detail=CompetitionErrors.REGISTRATION_CLOSED
         )
     
     existing = supabase.table("competition_registrations") \
