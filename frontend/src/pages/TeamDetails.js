@@ -388,6 +388,13 @@ function TeamDetails() {
           {/* Tab Content */}
           {activeTab === 'members' && (
             <div>
+              {/* Team Leader: Join Requests Section */}
+              {isLeader && (
+                <div className="mb-6">
+                  <TeamApprovalManager teamId={teamId} isLeader={isLeader} />
+                </div>
+              )}
+
               <h3 className="font-bold text-modex-primary mb-4 text-lg">
                 Team Members ({team.members.length}/{team.max_members})
               </h3>
