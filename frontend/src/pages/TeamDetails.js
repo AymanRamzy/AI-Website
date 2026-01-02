@@ -324,6 +324,17 @@ function TeamDetails() {
                 Members
               </button>
               <button
+                onClick={() => setActiveTab('tasks')}
+                className={`px-6 py-3 font-bold transition-colors border-b-2 whitespace-nowrap ${
+                  activeTab === 'tasks'
+                    ? 'border-modex-secondary text-modex-secondary'
+                    : 'border-transparent text-gray-600 hover:text-modex-primary'
+                }`}
+              >
+                <Layers className="w-5 h-5 inline-block mr-2" />
+                Tasks
+              </button>
+              <button
                 onClick={() => setActiveTab('chat')}
                 className={`px-6 py-3 font-bold transition-colors border-b-2 whitespace-nowrap ${
                   activeTab === 'chat'
