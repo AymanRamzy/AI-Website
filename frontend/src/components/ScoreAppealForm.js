@@ -62,7 +62,7 @@ function ScoreAppealForm({ submissionId, originalScore, onAppealSubmitted, onCan
         <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
         <h3 className="text-lg font-bold text-green-800 mb-2">Appeal Submitted</h3>
         <p className="text-green-700 mb-4">
-          Your appeal has been submitted for review. You'll be notified once a decision is made.
+          Your appeal has been submitted for review. You&apos;ll be notified once a decision is made.
         </p>
         <button
           onClick={onCancel}
