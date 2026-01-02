@@ -2201,3 +2201,263 @@ async def submit_team_solution(
         "submitted_by_name": current_user.full_name
     }
 
+
+
+# =========================================================
+# COMPETITION TASKS (PARTICIPANT VIEW)
+# =========================================================
+
+@router.get("/competitions/{competition_id}/tasks")
+async def get_competition_tasks_public(
+    competition_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """Get active tasks for a competition (participant view)."""
+    supabase = get_supabase_client()
+    
+    # Verify user is registered for competition
+    registration = supabase.table("competition_registrations")\
+        .select("id")\
+        .eq("competition_id", competition_id)\
+        .eq("user_id", current_user.id)\
+        .execute()
+    
+    if not registration.data:
+        raise HTTPException(
+            status_code=403,
+            detail="You must be registered for this competition"
+        )
+    
+    # Get active tasks
+    result = supabase.table("tasks")\
+        .select("id, title, description, task_type, max_points, deadline, order_index")\
+        .eq("competition_id", competition_id)\
+        .eq("is_active", True)\
+        .order("order_index")\
+        .execute()
+    
+    return result.data or []
+
+
+@router.post("/tasks/{task_id}/submit")
+async def submit_task(
+    task_id: str,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user)
+):
+    """Submit a file for a specific task."""
+    import logging
+    from uuid import uuid4
+    logger = logging.getLogger(__name__)
+    supabase = get_supabase_client()
+    
+    # Get task details
+    task = supabase.table("tasks")\
+        .select("*, competitions(id, status)")\
+        .eq("id", task_id)\
+        .execute()
+    
+    if not task.data:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    task_data = task.data[0]
+    competition_id = task_data["competition_id"]
+    
+    # Check deadline
+    if task_data.get("deadline"):
+        deadline = datetime.fromisoformat(task_data["deadline"].replace("Z", "+00:00"))
+        if datetime.now(deadline.tzinfo) > deadline:
+            raise HTTPException(status_code=400, detail="Submission deadline has passed")
+    
+    # Get user's team for this competition
+    membership = supabase.table("team_members")\
+        .select("team_id, teams(competition_id)")\
+        .eq("user_id", current_user.id)\
+        .execute()
+    
+    team_id = None
+    for m in (membership.data or []):
+        if m.get("teams", {}).get("competition_id") == competition_id:
+            team_id = m["team_id"]
+            break
+    
+    if not team_id:
+        raise HTTPException(status_code=400, detail="You must be in a team to submit")
+    
+    # Check for existing submission
+    existing = supabase.table("submissions")\
+        .select("id, status")\
+        .eq("task_id", task_id)\
+        .eq("team_id", team_id)\
+        .execute()
+    
+    if existing.data and existing.data[0].get("status") == "locked":
+        raise HTTPException(status_code=400, detail="Submission is locked and cannot be modified")
+    
+    # Upload file
+    file_content = await file.read()
+    file_ext = file.filename.split(".")[-1] if "." in file.filename else "bin"
+    unique_filename = f"{uuid4()}.{file_ext}"
+    file_path = f"submissions/{competition_id}/{task_id}/{team_id}/{unique_filename}"
+    
+    try:
+        supabase_admin = get_supabase_client(use_service_role=True)
+        upload_result = supabase_admin.storage.from_("Team-submissions").upload(
+            file_path,
+            file_content,
+            {"content-type": file.content_type or "application/octet-stream"}
+        )
+        
+        if hasattr(upload_result, 'error') and upload_result.error:
+            raise Exception(upload_result.error)
+        
+    except Exception as e:
+        logger.error(f"File upload error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to upload file")
+    
+    # Create or update submission record
+    submission_dict = {
+        "task_id": task_id,
+        "team_id": team_id,
+        "file_path": file_path,
+        "file_name": file.filename,
+        "submitted_by": current_user.id,
+        "submitted_at": datetime.utcnow().isoformat(),
+        "status": "submitted"
+    }
+    
+    if existing.data:
+        result = supabase.table("submissions")\
+            .update(submission_dict)\
+            .eq("id", existing.data[0]["id"])\
+            .execute()
+    else:
+        result = supabase.table("submissions").insert(submission_dict).execute()
+    
+    if not result.data:
+        raise HTTPException(status_code=500, detail="Failed to save submission")
+    
+    return {
+        "success": True,
+        "message": "Submission uploaded successfully",
+        "submission": result.data[0]
+    }
+
+
+@router.get("/tasks/{task_id}/my-submission")
+async def get_my_submission(
+    task_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """Get current team's submission for a task."""
+    supabase = get_supabase_client()
+    
+    # Get task to find competition
+    task = supabase.table("tasks")\
+        .select("competition_id")\
+        .eq("id", task_id)\
+        .execute()
+    
+    if not task.data:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    competition_id = task.data[0]["competition_id"]
+    
+    # Get user's team
+    membership = supabase.table("team_members")\
+        .select("team_id, teams(competition_id)")\
+        .eq("user_id", current_user.id)\
+        .execute()
+    
+    team_id = None
+    for m in (membership.data or []):
+        if m.get("teams", {}).get("competition_id") == competition_id:
+            team_id = m["team_id"]
+            break
+    
+    if not team_id:
+        return None
+    
+    # Get submission
+    result = supabase.table("submissions")\
+        .select("*")\
+        .eq("task_id", task_id)\
+        .eq("team_id", team_id)\
+        .execute()
+    
+    return result.data[0] if result.data else None
+
+
+# =========================================================
+# PUBLIC LEADERBOARD (READ-ONLY)
+# =========================================================
+
+@router.get("/competitions/{competition_id}/leaderboard")
+async def get_public_leaderboard(
+    competition_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get public leaderboard for a competition.
+    Only shows results if competition has published results.
+    """
+    supabase = get_supabase_client()
+    
+    # Check if results are published
+    comp = supabase.table("competitions")\
+        .select("status, results_published")\
+        .eq("id", competition_id)\
+        .execute()
+    
+    if not comp.data:
+        raise HTTPException(status_code=404, detail="Competition not found")
+    
+    if not comp.data[0].get("results_published"):
+        return {"message": "Results not yet published", "leaderboard": []}
+    
+    # Get leaderboard (same logic as admin but limited data)
+    teams = supabase.table("teams")\
+        .select("id, team_name")\
+        .eq("competition_id", competition_id)\
+        .execute()
+    
+    if not teams.data:
+        return {"leaderboard": []}
+    
+    tasks = supabase.table("tasks")\
+        .select("id")\
+        .eq("competition_id", competition_id)\
+        .eq("is_active", True)\
+        .execute()
+    
+    leaderboard = []
+    
+    for team in teams.data:
+        submissions = supabase.table("submissions")\
+            .select("id")\
+            .eq("team_id", team["id"])\
+            .execute()
+        
+        total_score = 0
+        for sub in (submissions.data or []):
+            scores = supabase.table("scores")\
+                .select("total_score")\
+                .eq("submission_id", sub["id"])\
+                .eq("is_final", True)\
+                .execute()
+            
+            if scores.data:
+                avg = sum(s["total_score"] for s in scores.data) / len(scores.data)
+                total_score += avg
+        
+        leaderboard.append({
+            "team_name": team["team_name"],
+            "total_score": round(total_score, 2)
+        })
+    
+    leaderboard.sort(key=lambda x: -x["total_score"])
+    
+    for i, entry in enumerate(leaderboard):
+        entry["rank"] = i + 1
+    
+    return {"leaderboard": leaderboard}
