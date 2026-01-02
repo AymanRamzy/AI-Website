@@ -110,8 +110,380 @@ class Phase24APITester:
         except Exception as e:
             self.log(f"❌ Error getting competitions: {str(e)}", "ERROR")
             return False
+    
+    def test_admin_task_management(self) -> bool:
+        """Test admin task management endpoints"""
+        self.log("Testing Admin Task Management APIs...")
         
-    def test_api_health(self) -> bool:
+        if not self.admin_token or not self.test_competition_id:
+            self.log("❌ Missing admin token or competition ID", "ERROR")
+            return False
+        
+        success_count = 0
+        
+        # Test 1: GET /api/admin/competitions/{id}/tasks - List tasks
+        try:
+            response = self.session.get(
+                f"{ADMIN_API_BASE}/competitions/{self.test_competition_id}/tasks",
+                headers={"Authorization": f"Bearer {self.admin_token}"}
+            )
+            
+            if response.status_code == 200:
+                tasks = response.json()
+                self.log(f"✅ GET tasks successful - found {len(tasks)} tasks")
+                success_count += 1
+            else:
+                self.log(f"❌ GET tasks failed: {response.status_code} - {response.text}", "ERROR")
+                
+        except Exception as e:
+            self.log(f"❌ GET tasks error: {str(e)}", "ERROR")
+        
+        # Test 2: POST /api/admin/competitions/{id}/tasks - Create task
+        try:
+            task_data = {
+                "title": "Test Financial Model Task",
+                "description": "Build a comprehensive financial model for Level 2",
+                "task_type": "submission",
+                "level": 2,
+                "allowed_file_types": ["xlsx", "xlsm"],
+                "max_file_size_mb": 25,
+                "max_points": 100,
+                "order_index": 1,
+                "constraints_text": "Must include sensitivity analysis",
+                "assumptions_policy": "Document all assumptions clearly"
+            }
+            
+            response = self.session.post(
+                f"{ADMIN_API_BASE}/competitions/{self.test_competition_id}/tasks",
+                json=task_data,
+                headers={"Authorization": f"Bearer {self.admin_token}"}
+            )
+            
+            if response.status_code == 200:
+                task = response.json()
+                self.test_task_id = task.get("id")
+                self.log(f"✅ POST task successful - created task: {self.test_task_id}")
+                success_count += 1
+            else:
+                self.log(f"❌ POST task failed: {response.status_code} - {response.text}", "ERROR")
+                
+        except Exception as e:
+            self.log(f"❌ POST task error: {str(e)}", "ERROR")
+        
+        # Test 3: PATCH /api/admin/competitions/{id}/tasks/{task_id} - Update task
+        if self.test_task_id:
+            try:
+                update_data = {
+                    "title": "Updated Financial Model Task",
+                    "max_points": 120
+                }
+                
+                response = self.session.patch(
+                    f"{ADMIN_API_BASE}/competitions/{self.test_competition_id}/tasks/{self.test_task_id}",
+                    json=update_data,
+                    headers={"Authorization": f"Bearer {self.admin_token}"}
+                )
+                
+                if response.status_code == 200:
+                    self.log("✅ PATCH task successful")
+                    success_count += 1
+                else:
+                    self.log(f"❌ PATCH task failed: {response.status_code} - {response.text}", "ERROR")
+                    
+            except Exception as e:
+                self.log(f"❌ PATCH task error: {str(e)}", "ERROR")
+        
+        return success_count >= 2  # At least GET and POST should work
+    
+    def test_admin_scoring_criteria(self) -> bool:
+        """Test admin scoring criteria endpoints"""
+        self.log("Testing Admin Scoring Criteria APIs...")
+        
+        if not self.admin_token or not self.test_competition_id:
+            self.log("❌ Missing admin token or competition ID", "ERROR")
+            return False
+        
+        success_count = 0
+        
+        # Test 1: GET /api/admin/competitions/{id}/criteria - List criteria
+        try:
+            response = self.session.get(
+                f"{ADMIN_API_BASE}/competitions/{self.test_competition_id}/criteria",
+                headers={"Authorization": f"Bearer {self.admin_token}"}
+            )
+            
+            if response.status_code == 200:
+                criteria = response.json()
+                self.log(f"✅ GET criteria successful - found {len(criteria)} criteria")
+                success_count += 1
+            else:
+                self.log(f"❌ GET criteria failed: {response.status_code} - {response.text}", "ERROR")
+                
+        except Exception as e:
+            self.log(f"❌ GET criteria error: {str(e)}", "ERROR")
+        
+        # Test 2: POST /api/admin/competitions/{id}/criteria - Create criterion
+        try:
+            criterion_data = {
+                "name": "Accuracy of Analysis",
+                "description": "Quality and accuracy of financial analysis",
+                "weight": 25,
+                "max_score": 100,
+                "applies_to_levels": [2, 3, 4],
+                "display_order": 1
+            }
+            
+            response = self.session.post(
+                f"{ADMIN_API_BASE}/competitions/{self.test_competition_id}/criteria",
+                json=criterion_data,
+                headers={"Authorization": f"Bearer {self.admin_token}"}
+            )
+            
+            if response.status_code == 200:
+                criterion = response.json()
+                self.test_criterion_id = criterion.get("id")
+                self.log(f"✅ POST criterion successful - created: {self.test_criterion_id}")
+                success_count += 1
+            else:
+                self.log(f"❌ POST criterion failed: {response.status_code} - {response.text}", "ERROR")
+                
+        except Exception as e:
+            self.log(f"❌ POST criterion error: {str(e)}", "ERROR")
+        
+        # Test 3: PATCH /api/admin/competitions/{id}/criteria/{criterion_id} - Update criterion
+        if self.test_criterion_id:
+            try:
+                update_data = {
+                    "weight": 30,
+                    "description": "Updated: Quality and accuracy of financial analysis"
+                }
+                
+                response = self.session.patch(
+                    f"{ADMIN_API_BASE}/competitions/{self.test_competition_id}/criteria/{self.test_criterion_id}",
+                    json=update_data,
+                    headers={"Authorization": f"Bearer {self.admin_token}"}
+                )
+                
+                if response.status_code == 200:
+                    self.log("✅ PATCH criterion successful")
+                    success_count += 1
+                else:
+                    self.log(f"❌ PATCH criterion failed: {response.status_code} - {response.text}", "ERROR")
+                    
+            except Exception as e:
+                self.log(f"❌ PATCH criterion error: {str(e)}", "ERROR")
+        
+        return success_count >= 2  # At least GET and POST should work
+    
+    def test_admin_level_control(self) -> bool:
+        """Test admin level control endpoints"""
+        self.log("Testing Admin Level Control APIs...")
+        
+        if not self.admin_token or not self.test_competition_id:
+            self.log("❌ Missing admin token or competition ID", "ERROR")
+            return False
+        
+        success_count = 0
+        
+        # Test 1: PATCH /api/admin/competitions/{id} - Update current_level
+        try:
+            update_data = {
+                "current_level": 2
+            }
+            
+            response = self.session.patch(
+                f"{ADMIN_API_BASE}/competitions/{self.test_competition_id}",
+                json=update_data,
+                headers={"Authorization": f"Bearer {self.admin_token}"}
+            )
+            
+            if response.status_code == 200:
+                self.log("✅ PATCH competition level successful")
+                success_count += 1
+            else:
+                self.log(f"❌ PATCH competition level failed: {response.status_code} - {response.text}", "ERROR")
+                
+        except Exception as e:
+            self.log(f"❌ PATCH competition level error: {str(e)}", "ERROR")
+        
+        # Test 2: POST /api/admin/competitions/{id}/create-level-tasks?level=2 - Create predefined tasks
+        try:
+            response = self.session.post(
+                f"{ADMIN_API_BASE}/competitions/{self.test_competition_id}/create-level-tasks",
+                params={"level": 2},
+                headers={"Authorization": f"Bearer {self.admin_token}"}
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                tasks_created = result.get("tasks_created", 0)
+                self.log(f"✅ POST create-level-tasks successful - created {tasks_created} tasks")
+                success_count += 1
+            else:
+                self.log(f"❌ POST create-level-tasks failed: {response.status_code} - {response.text}", "ERROR")
+                
+        except Exception as e:
+            self.log(f"❌ POST create-level-tasks error: {str(e)}", "ERROR")
+        
+        return success_count >= 1  # At least one should work
+    
+    def test_judge_endpoints(self) -> bool:
+        """Test judge endpoints"""
+        self.log("Testing Judge Endpoints...")
+        
+        # Use admin token if judge token not available
+        token = self.judge_token or self.admin_token
+        if not token:
+            self.log("❌ No judge or admin token available", "ERROR")
+            return False
+        
+        success_count = 0
+        
+        # Test 1: GET /api/cfo/judge/competitions - Get judge assigned competitions
+        try:
+            response = self.session.get(
+                f"{API_BASE}/judge/competitions",
+                headers={"Authorization": f"Bearer {token}"}
+            )
+            
+            if response.status_code == 200:
+                competitions = response.json()
+                self.log(f"✅ GET judge competitions successful - found {len(competitions)} competitions")
+                success_count += 1
+            else:
+                self.log(f"❌ GET judge competitions failed: {response.status_code} - {response.text}", "ERROR")
+                
+        except Exception as e:
+            self.log(f"❌ GET judge competitions error: {str(e)}", "ERROR")
+        
+        # Test 2: GET /api/cfo/judge/competitions/{id}/criteria - Get criteria for scoring
+        if self.test_competition_id:
+            try:
+                response = self.session.get(
+                    f"{API_BASE}/judge/competitions/{self.test_competition_id}/criteria",
+                    headers={"Authorization": f"Bearer {token}"}
+                )
+                
+                if response.status_code == 200:
+                    criteria = response.json()
+                    self.log(f"✅ GET judge criteria successful - found {len(criteria)} criteria")
+                    success_count += 1
+                else:
+                    self.log(f"❌ GET judge criteria failed: {response.status_code} - {response.text}", "ERROR")
+                    
+            except Exception as e:
+                self.log(f"❌ GET judge criteria error: {str(e)}", "ERROR")
+        
+        # Test 3: GET /api/cfo/judge/competitions/{id}/submissions - Get submissions to review
+        if self.test_competition_id:
+            try:
+                response = self.session.get(
+                    f"{API_BASE}/judge/competitions/{self.test_competition_id}/submissions",
+                    headers={"Authorization": f"Bearer {token}"}
+                )
+                
+                if response.status_code == 200:
+                    submissions = response.json()
+                    self.log(f"✅ GET judge submissions successful - found {len(submissions)} submissions")
+                    success_count += 1
+                else:
+                    self.log(f"❌ GET judge submissions failed: {response.status_code} - {response.text}", "ERROR")
+                    
+            except Exception as e:
+                self.log(f"❌ GET judge submissions error: {str(e)}", "ERROR")
+        
+        return success_count >= 1  # At least one should work
+    
+    def test_participant_task_endpoints(self) -> bool:
+        """Test participant task endpoints"""
+        self.log("Testing Participant Task Endpoints...")
+        
+        # Use participant token or admin token
+        token = self.participant_token or self.admin_token
+        if not token or not self.test_competition_id:
+            self.log("❌ Missing token or competition ID", "ERROR")
+            return False
+        
+        success_count = 0
+        
+        # Test 1: GET /api/cfo/competitions/{id}/tasks - Get all tasks for competition
+        try:
+            response = self.session.get(
+                f"{API_BASE}/competitions/{self.test_competition_id}/tasks",
+                headers={"Authorization": f"Bearer {token}"}
+            )
+            
+            if response.status_code == 200:
+                tasks = response.json()
+                self.log(f"✅ GET participant tasks successful - found {len(tasks)} tasks")
+                success_count += 1
+            else:
+                self.log(f"❌ GET participant tasks failed: {response.status_code} - {response.text}", "ERROR")
+                
+        except Exception as e:
+            self.log(f"❌ GET participant tasks error: {str(e)}", "ERROR")
+        
+        # Test 2: GET /api/cfo/teams/{id}/submissions - Get team's submissions
+        # First try to get a team ID
+        try:
+            response = self.session.get(
+                f"{API_BASE}/teams/competition/{self.test_competition_id}",
+                headers={"Authorization": f"Bearer {token}"}
+            )
+            
+            if response.status_code == 200:
+                teams = response.json()
+                if teams:
+                    self.test_team_id = teams[0]["id"]
+                    
+                    # Now test getting team submissions
+                    response = self.session.get(
+                        f"{API_BASE}/teams/{self.test_team_id}/submissions",
+                        headers={"Authorization": f"Bearer {token}"}
+                    )
+                    
+                    if response.status_code == 200:
+                        submissions = response.json()
+                        self.log(f"✅ GET team submissions successful - found {len(submissions)} submissions")
+                        success_count += 1
+                    else:
+                        self.log(f"❌ GET team submissions failed: {response.status_code} - {response.text}", "ERROR")
+                else:
+                    self.log("⚠️ No teams found for testing submissions", "WARNING")
+            else:
+                self.log(f"❌ GET teams failed: {response.status_code} - {response.text}", "ERROR")
+                
+        except Exception as e:
+            self.log(f"❌ GET team submissions error: {str(e)}", "ERROR")
+        
+        # Test 3: POST /api/cfo/teams/{id}/submissions/task - Submit file to specific task
+        if self.test_team_id and self.test_task_id:
+            try:
+                # Create a test file
+                test_file_content = b"Test submission content for financial model"
+                files = {'file': ('test_model.xlsx', test_file_content, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')}
+                data = {
+                    'task_id': self.test_task_id,
+                    'team_id': self.test_team_id
+                }
+                
+                response = self.session.post(
+                    f"{API_BASE}/teams/{self.test_team_id}/submissions/task",
+                    data=data,
+                    files=files,
+                    headers={"Authorization": f"Bearer {token}"}
+                )
+                
+                if response.status_code in [200, 201]:
+                    self.log("✅ POST task submission successful")
+                    success_count += 1
+                else:
+                    self.log(f"❌ POST task submission failed: {response.status_code} - {response.text}", "ERROR")
+                    
+            except Exception as e:
+                self.log(f"❌ POST task submission error: {str(e)}", "ERROR")
+        
+        return success_count >= 1  # At least one should work
         """Test basic API connectivity"""
         try:
             response = self.session.get(f"{BASE_URL}/api/")
