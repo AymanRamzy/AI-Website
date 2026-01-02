@@ -15,6 +15,7 @@ function JoinTeam() {
   const [loading, setLoading] = useState(true);
   const [loadingTeams, setLoadingTeams] = useState(false);
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const [joiningTeamId, setJoiningTeamId] = useState(null);
 
   useEffect(() => {
