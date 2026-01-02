@@ -4,6 +4,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { Trophy, Users, Calendar, LogOut, Plus, ArrowRight, Clock, CheckCircle, Edit3, User, MessageCircle, Award, TrendingUp, Target, Star } from 'lucide-react';
 import GlobalChat from '../components/GlobalChat';
+import BadgesShowcase from '../components/BadgesShowcase';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL || '';
 
