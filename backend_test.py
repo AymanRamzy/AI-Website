@@ -24,14 +24,14 @@ class StrategicSuiteAPITester:
         self.session = requests.Session()
         self.session.headers.update({'Content-Type': 'application/json'})
         self.admin_token = None
-        self.judge_token = None
+        self.leader_token = None
         self.participant_token = None
+        self.company_token = None
         self.test_competition_id = None
-        self.test_task_id = None
-        self.test_criterion_id = None
         self.test_team_id = None
         self.test_submission_id = None
-        self.test_judge_id = None
+        self.test_appeal_id = None
+        self.test_offer_id = None
         
     def log(self, message: str, level: str = "INFO"):
         """Log test messages with timestamp"""
