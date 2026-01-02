@@ -372,11 +372,31 @@ function JudgeDashboard() {
               </div>
             ) : (
               <div className="bg-white rounded-xl border-2 border-gray-200 overflow-hidden">
+                {/* Scoring Locked Warning */}
+                {scoringLocked && (
+                  <div className="bg-red-50 border-b border-red-200 px-6 py-3 flex items-center">
+                    <Lock className="w-5 h-5 text-red-500 mr-2" />
+                    <span className="text-red-700 font-medium">
+                      Scoring is locked for this competition. You can view but not modify scores.
+                    </span>
+                  </div>
+                )}
+
                 {/* Submission Header */}
                 <div className="bg-gradient-to-r from-modex-secondary to-modex-accent text-white px-6 py-4">
                   <div className="flex justify-between items-start">
                     <div>
-                      <h3 className="font-bold text-lg">{selectedSubmission.team_name || 'Team Submission'}</h3>
+                      <div className="flex items-center">
+                        <h3 className="font-bold text-lg">
+                          {blindJudging ? 'Anonymous Submission' : (selectedSubmission.team_name || 'Team Submission')}
+                        </h3>
+                        {blindJudging && (
+                          <span className="ml-2 bg-white/20 text-xs px-2 py-1 rounded flex items-center">
+                            <EyeOff className="w-3 h-3 mr-1" />
+                            Blind Mode
+                          </span>
+                        )}
+                      </div>
                       <p className="text-sm opacity-90">{selectedSubmission.task_title || 'Task'}</p>
                     </div>
                     {selectedSubmission.file_url && (
@@ -403,6 +423,19 @@ function JudgeDashboard() {
                         {calculateWeightedTotal()}
                         <span className="text-lg text-gray-500">/100</span>
                       </span>
+                    </div>
+                    {/* Per-criterion breakdown mini-view */}
+                    <div className="mt-3 pt-3 border-t border-gray-200">
+                      <div className="grid grid-cols-3 gap-2 text-xs">
+                        {criteria.slice(0, 6).map(c => (
+                          <div key={c.id} className="flex justify-between bg-white rounded px-2 py-1">
+                            <span className="text-gray-600 truncate">{c.name.slice(0, 12)}...</span>
+                            <span className={`font-bold ${scores[c.id] >= 70 ? 'text-green-600' : scores[c.id] >= 50 ? 'text-yellow-600' : 'text-gray-500'}`}>
+                              {scores[c.id] || '-'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
 
