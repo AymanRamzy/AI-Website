@@ -1830,11 +1830,11 @@ async def assign_role(
     
     team = team_result.data[0]
     
-    # Check if current user is the leader
+    # PHASE 1.5: Clear error for non-leader
     if team["leader_id"] != current_user.id:
         raise HTTPException(
             status_code=403,
-            detail="Only the team leader can assign roles"
+            detail=CompetitionErrors.NOT_TEAM_LEADER
         )
     
     # Check if target user is a team member
