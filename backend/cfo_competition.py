@@ -3295,7 +3295,7 @@ async def submit_task_file(
         # Remove existing if any
         try:
             supabase_admin.storage.from_("Team-submissions").remove([file_path])
-        except:
+        except Exception:
             pass
         
         # Upload
