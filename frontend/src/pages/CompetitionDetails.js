@@ -417,7 +417,7 @@ function CompetitionDetails() {
           ) : (
             <div>
               <h3 className="text-xl font-bold text-modex-primary mb-4">
-                You're registered! What's next?
+                You&apos;re registered! What&apos;s next?
               </h3>
               <p className="text-gray-600 mb-6">
                 Create your own team or join an existing one
