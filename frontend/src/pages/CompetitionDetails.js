@@ -371,30 +371,48 @@ function CompetitionDetails() {
               <h3 className="text-xl font-bold text-modex-primary mb-4">
                 Ready to participate?
               </h3>
-              <p className="text-gray-600 mb-6">
-                Register for this competition to create or join a team
-              </p>
-              <button
-                onClick={handleRegister}
-                disabled={registering || !isRegistrationOpen()}
-                className="w-full bg-modex-accent text-white px-8 py-4 rounded-lg font-bold text-lg hover:bg-modex-primary transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center"
-              >
-                {registering ? (
-                  <>
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
-                    Registering...
-                  </>
-                ) : !isRegistrationOpen() ? (
-                  'Registration Not Open'
-                ) : !user ? (
-                  'Sign In to Register'
-                ) : (
-                  <>
-                    <UserPlus className="w-5 h-5 mr-2" />
-                    Register for Competition
-                  </>
-                )}
-              </button>
+              {isRegistrationOpen() ? (
+                <>
+                  <p className="text-gray-600 mb-6">
+                    Register for this competition to create or join a team
+                  </p>
+                  <button
+                    onClick={handleRegister}
+                    disabled={registering}
+                    className="w-full bg-modex-accent text-white px-8 py-4 rounded-lg font-bold text-lg hover:bg-modex-primary transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center"
+                  >
+                    {registering ? (
+                      <>
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
+                        Registering...
+                      </>
+                    ) : !user ? (
+                      'Sign In to Register'
+                    ) : (
+                      <>
+                        <UserPlus className="w-5 h-5 mr-2" />
+                        Register for Competition
+                      </>
+                    )}
+                  </button>
+                </>
+              ) : (
+                <>
+                  {/* PHASE A FIX: Status-aware message when registration is closed */}
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                    <p className="text-yellow-800 font-medium flex items-center">
+                      <AlertCircle className="w-5 h-5 mr-2" />
+                      {getRegistrationClosedReason()}
+                    </p>
+                  </div>
+                  <button
+                    disabled
+                    className="w-full bg-gray-400 text-white px-8 py-4 rounded-lg font-bold text-lg cursor-not-allowed flex items-center justify-center"
+                  >
+                    Registration Closed
+                  </button>
+                </>
+              )}
             </div>
           ) : (
             <div>
