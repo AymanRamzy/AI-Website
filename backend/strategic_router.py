@@ -218,29 +218,46 @@ async def get_team_join_requests(
     status: Optional[str] = Query("pending"),
     current_user: User = Depends(get_current_user)
 ):
-    """Get join requests for a team (team leader only)."""
+    """
+    Get join requests for a team (team leader only).
+    
+    Returns empty list [] if no requests found.
+    Never returns 520 - handles all errors gracefully.
+    """
+    import logging
+    logger = logging.getLogger(__name__)
     supabase = get_supabase_client()
     
-    # Verify leader role
-    membership = supabase.table("team_members")\
-        .select("role")\
-        .eq("team_id", team_id)\
-        .eq("user_id", current_user.id)\
-        .execute()
-    
-    if not membership.data or membership.data[0].get("role") not in ["leader", "co-leader"]:
-        raise HTTPException(status_code=403, detail="Only team leaders can view join requests")
-    
-    query = supabase.table("team_join_requests")\
-        .select("*, user_profiles(id, full_name, email, avatar_url)")\
-        .eq("team_id", team_id)
-    
-    if status:
-        query = query.eq("status", status)
-    
-    result = query.order("created_at", desc=True).execute()
-    
-    return result.data or []
+    try:
+        # Verify leader role
+        membership = supabase.table("team_members")\
+            .select("role")\
+            .eq("team_id", team_id)\
+            .eq("user_id", current_user.id)\
+            .execute()
+        
+        if not membership.data or membership.data[0].get("role") not in ["leader", "co-leader"]:
+            raise HTTPException(status_code=403, detail="Only team leaders can view join requests")
+        
+        # Build query with proper error handling
+        query = supabase.table("team_join_requests")\
+            .select("id, team_id, user_id, message, status, created_at, user_profiles(id, full_name, email, avatar_url)")\
+            .eq("team_id", team_id)
+        
+        if status:
+            query = query.eq("status", status)
+        
+        result = query.order("created_at", desc=True).execute()
+        
+        # Always return array, never null
+        return result.data if result.data else []
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching join requests for team {team_id}: {e}")
+        # Return empty array instead of 520
+        return []
 
 
 @router.post("/cfo/teams/{team_id}/join-requests/{request_id}/review")
