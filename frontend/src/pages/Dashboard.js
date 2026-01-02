@@ -176,6 +176,17 @@ function Dashboard() {
             <MessageCircle className="w-5 h-5 inline-block mr-2" />
             Global Chat
           </button>
+          <button
+            onClick={() => setActiveTab('badges')}
+            className={`px-6 py-3 font-bold transition-colors border-b-2 ${
+              activeTab === 'badges'
+                ? 'border-modex-secondary text-modex-secondary'
+                : 'border-transparent text-gray-600 hover:text-modex-primary'
+            }`}
+          >
+            <Award className="w-5 h-5 inline-block mr-2" />
+            My Badges
+          </button>
         </div>
 
         {/* Competitions Tab */}
