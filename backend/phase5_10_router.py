@@ -791,7 +791,7 @@ async def submit_judge_score(
             continue  # Skip criteria that don't apply to this level
         
         if entry.score < 0 or entry.score > 100:
-            raise HTTPException(status_code=400, detail=f"Score must be between 0-100")
+            raise HTTPException(status_code=400, detail="Score must be between 0-100")
         
         # Calculate weighted contribution
         weighted_total += entry.score * (criterion["weight"] / 100)
