@@ -232,7 +232,7 @@ function CompetitionDetails() {
           <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-gray-800 mb-2">Competition Not Found</h2>
           <p className="text-gray-600 mb-6">
-            The competition you're looking for doesn't exist.
+            The competition you&apos;re looking for doesn&apos;t exist.
           </p>
           <Link
             to="/dashboard"
