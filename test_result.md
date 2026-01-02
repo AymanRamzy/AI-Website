@@ -261,3 +261,63 @@ test_plan:
 agent_communication:
   - agent: "testing"
     message: "Starting Phase 2-4 Multi-Level Competition Engine testing. Focus on admin task management, scoring criteria, judge endpoints, and participant task endpoints."
+
+## Phase 5-10 Testing - Multi-Level Competition Engine
+
+### Endpoints Implemented (Phase 5-10)
+
+#### Phase 5: Task Submissions
+- GET /api/cfo/competitions/{id}/tasks - Get tasks with submission status
+- GET /api/cfo/tasks/{id}/my-submission - Get current user's submission
+- POST /api/cfo/tasks/{id}/submit - Submit file to task
+- GET /api/admin/competitions/{id}/task-submissions - Admin view all submissions
+- GET /api/admin/tasks/{id}/submissions - Admin view task submissions
+- POST /api/admin/task-submissions/{id}/lock - Lock submission
+
+#### Phase 6: Judge Workflow
+- POST /api/admin/competitions/{id}/judges - Assign judge
+- GET /api/admin/competitions/{id}/judges - List judges
+- DELETE /api/admin/competitions/{id}/judges/{judge_id} - Remove judge
+- GET /api/judge/competitions - Judge's assigned competitions
+- GET /api/judge/competitions/{id}/submissions - Submissions to review
+- GET /api/judge/competitions/{id}/criteria - Scoring criteria
+- GET /api/judge/task-submissions/{id}/my-scores - My scores
+- POST /api/judge/task-submissions/{id}/score - Submit scores
+
+#### Phase 7: Leaderboards
+- GET /api/cfo/competitions/{id}/leaderboard - Get leaderboard (if published)
+- POST /api/admin/competitions/{id}/publish-results - Publish results
+- GET /api/admin/competitions/{id}/export-results - Export CSV/JSON
+
+#### Phase 8: Certificates
+- POST /api/admin/competitions/{id}/issue-certificates - Issue certificates
+- GET /api/cfo/me/certificates - Get my certificates
+
+#### Phase 9: Integrity
+- GET /api/admin/tasks/{id}/integrity-report - Duplicate file detection
+
+#### Phase 10: Operations
+- GET /api/health - Health check
+- GET /api/admin/audit-log - Audit trail
+- GET /api/cfo/competitions/{id}/status - Enhanced status
+
+### Database Tables Created
+- task_submissions - Per-task submissions (Levels 2-4)
+- task_score_entries - Criteria scores per judge
+- task_submission_scores - Weighted totals
+- team_level_scores - Aggregated level scores
+- leaderboard_snapshots - Published rankings
+- certificates - Competition certificates
+- audit_log - Action audit trail
+
+### Test Checklist
+1. [READY] Team submits for Level 2 task -> task_submissions row created
+2. [READY] Duplicate submission rejected (unique constraint)
+3. [READY] Deadline passed -> clear error
+4. [READY] Lock submissions -> rejects all submits
+5. [READY] Judge assignment required -> cannot score without assignment
+6. [READY] Judge scoring stores per-criterion entries + weighted total
+7. [READY] Leaderboard returns correct ordering + tie-break
+8. [READY] Results hidden until publish
+9. [READY] Export results works
+10. [READY] Audit log captures key actions
