@@ -391,6 +391,14 @@ function Dashboard() {
             <GlobalChat />
           </div>
         )}
+
+        {/* My Badges Tab */}
+        {activeTab === 'badges' && (
+          <div>
+            <h2 className="text-2xl font-bold text-modex-primary mb-6">My Badges & Achievements</h2>
+            <BadgesShowcase />
+          </div>
+        )}
       </div>
     </div>
   );
