@@ -691,8 +691,8 @@ class StrategicSuiteAPITester:
         return success_count >= 5  # At least 5 out of 8 should work
 
     def run_all_tests(self) -> Dict[str, bool]:
-        """Run all Phase 5-10 test suites and return results"""
-        self.log("=== Phase 5-10 Multi-Level Competition Engine Testing Started ===")
+        """Run all Strategic Enhancement Suite test suites and return results"""
+        self.log("=== Phase 5-10 Strategic Enhancement Suite Testing Started ===")
         
         results = {}
         
@@ -708,32 +708,20 @@ class StrategicSuiteAPITester:
             self.log("❌ Failed to get test competition", "ERROR")
             return {"setup_failed": False}
         
-        # Test 2: Enhanced Status
-        results["enhanced_status"] = self.test_enhanced_status_endpoint()
+        # Test 2: Phase 5 - Team Governance
+        results["phase5_team_governance"] = self.test_phase5_team_governance()
         
-        # Test 3: Phase 5 - Task Submissions (Participant)
-        results["task_submissions_participant"] = self.test_task_submissions_participant()
+        # Test 3: Phase 6 - Admin Observer Mode
+        results["phase6_admin_observer"] = self.test_phase6_admin_observer_mode()
         
-        # Test 4: Phase 5 - Admin Task Submission Management
-        results["admin_task_submission_management"] = self.test_admin_task_submission_management()
+        # Test 4: Phase 8 - Scoring Fairness
+        results["phase8_scoring_fairness"] = self.test_phase8_scoring_fairness()
         
-        # Test 5: Phase 6 - Judge Assignment (Admin)
-        results["judge_assignment_admin"] = self.test_judge_assignment_admin()
+        # Test 5: Phase 9 - Talent Marketplace
+        results["phase9_talent_marketplace"] = self.test_phase9_talent_marketplace()
         
-        # Test 6: Phase 6 - Judge Workflow
-        results["judge_workflow"] = self.test_judge_workflow()
-        
-        # Test 7: Phase 7 - Leaderboards & Results
-        results["leaderboards_results"] = self.test_leaderboards_results()
-        
-        # Test 8: Phase 8 - Certificates
-        results["certificates"] = self.test_certificates()
-        
-        # Test 9: Phase 9 - Integrity
-        results["integrity"] = self.test_integrity()
-        
-        # Test 10: Phase 10 - Operations
-        results["operations"] = self.test_operations()
+        # Test 6: Phase 10 - Gamification
+        results["phase10_gamification"] = self.test_phase10_gamification()
         
         # Summary
         self.log("=== Test Results Summary ===")
@@ -747,7 +735,7 @@ class StrategicSuiteAPITester:
         self.log(f"Overall: {passed}/{total} tests passed")
         
         if passed == total:
-            self.log("🎉 All Phase 5-10 tests passed! Multi-level competition engine is working correctly.")
+            self.log("🎉 All Strategic Enhancement Suite tests passed! Platform is working correctly.")
         else:
             self.log("⚠️ Some tests failed. Check the logs above for details.")
         
@@ -755,7 +743,7 @@ class StrategicSuiteAPITester:
 
 def main():
     """Main test execution"""
-    tester = Phase510APITester()
+    tester = StrategicSuiteAPITester()
     results = tester.run_all_tests()
     
     # Exit with appropriate code
